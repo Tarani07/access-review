@@ -1,6 +1,6 @@
 // Enhanced Authentication and Session Management Service
 
-import { User, Role, hasPermission } from '../types/rbac';
+import { User, Role, hasPermission, IGA_ROLES } from '../types/rbac';
 
 export interface AuthSession {
   user: User;
@@ -171,7 +171,6 @@ class AuthService {
 
   // Get role by ID (mock implementation)
   private getRoleById(roleId: string): Role {
-    const { IGA_ROLES } = require('../types/rbac');
     return IGA_ROLES.find((role: Role) => role.id === roleId) || IGA_ROLES[0];
   }
 
@@ -203,11 +202,7 @@ class AuthService {
         return { success: false, error: 'Invalid email or password' };
       }
 
-      // Mock MFA validation (in real app, this would be real MFA)
-      if (credentials.mfaCode && credentials.mfaCode !== '123456') {
-        this.updateState({ isLoading: false, error: 'Invalid MFA code' });
-        return { success: false, error: 'Invalid MFA code' };
-      }
+      // MFA bypass (disabled)
 
       // Create session
       const session: AuthSession = {

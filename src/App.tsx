@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Filter, Eye, EyeOff, Shield, BarChart3, FileText, Lock } from 'lucide-react';
-import LoginForm from './components/LoginForm';
 import ToolManagement from './components/ToolManagement';
 import HistoryView from './components/HistoryView';
 import AddToolModal from './components/AddToolModal';
 import AccessControlGate from './components/AccessControlGate';
 import EnhancedDashboard from './components/EnhancedDashboard';
-import AuthService from './services/auth';
 import AuditService from './services/audit';
 import PolicyService from './services/policy';
 
@@ -48,7 +46,6 @@ interface HistoryRecord {
 }
 
 function App() {
-  const [authState, setAuthState] = useState(AuthService.getAuthState());
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddToolModalOpen, setIsAddToolModalOpen] = useState(false);
   const [downloadOnlyFlagged, setDownloadOnlyFlagged] = useState(false);
@@ -64,14 +61,8 @@ function App() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-  const authService = AuthService.getInstance();
-  const auditService = AuditService.getInstance();
-  const policyService = PolicyService.getInstance();
-
-  useEffect(() => {
-    const unsubscribe = authService.subscribe(setAuthState);
-    return unsubscribe;
-  }, []);
+  const auditService = AuditService;
+  const policyService = PolicyService;
   
   const [tools, setTools] = useState<Tool[]>([
     // Pre-configured tools with some sample data
@@ -234,15 +225,7 @@ function App() {
     },
   ];
 
-  const handleLogin = async (credentials: { username: string; password: string; mfaCode?: string; rememberMe?: boolean }) => {
-    const result = await authService.login(credentials);
-    if (!result.success && result.error) {
-      alert(result.error);
-    }
-  };
-
   const handleLogout = () => {
-    authService.logout();
     setActiveTab('dashboard');
     setUserAccessData([]);
     setSelectedUsers([]);
@@ -454,12 +437,8 @@ function App() {
     }
   };
 
-  if (!authState.isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} isLoading={authState.isLoading} />;
-  }
-
   return (
-    <AccessControlGate currentUser={authState.user?.email || ''}>
+    <AccessControlGate currentUser={''}>
     <div className="min-h-screen bg-gray-50 font-['Inter',sans-serif]">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
@@ -481,64 +460,54 @@ function App() {
                 <BarChart3 className="h-4 w-4 inline mr-1" />
                 Dashboard
               </button>
-              {authService.hasPermission('access:read') && (
-                <button
-                  onClick={() => setActiveTab('access-review')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'access-review' 
-                      ? 'text-emerald-600 bg-emerald-50' 
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <Eye className="h-4 w-4 inline mr-1" />
-                  Access Review
-                </button>
-              )}
-              {authService.hasPermission('tool:read') && (
-                <button
-                  onClick={() => setActiveTab('tools')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'tools' 
-                      ? 'text-emerald-600 bg-emerald-50' 
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <Settings className="h-4 w-4 inline mr-1" />
-                  Tools
-                </button>
-              )}
-              {authService.hasPermission('audit:read') && (
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'history' 
-                      ? 'text-emerald-600 bg-emerald-50' 
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <History className="h-4 w-4 inline mr-1" />
-                  Audit Logs
-                </button>
-              )}
-              {authService.hasPermission('policy:read') && (
-                <button
-                  onClick={() => setActiveTab('policies')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'policies' 
-                      ? 'text-emerald-600 bg-emerald-50' 
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <FileText className="h-4 w-4 inline mr-1" />
-                  Policies
-                </button>
-              )}
+              <button
+                onClick={() => setActiveTab('access-review')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'access-review' 
+                    ? 'text-emerald-600 bg-emerald-50' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <Eye className="h-4 w-4 inline mr-1" />
+                Access Review
+              </button>
+              <button
+                onClick={() => setActiveTab('tools')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'tools' 
+                    ? 'text-emerald-600 bg-emerald-50' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <Settings className="h-4 w-4 inline mr-1" />
+                Tools
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'history' 
+                    ? 'text-emerald-600 bg-emerald-50' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <History className="h-4 w-4 inline mr-1" />
+                Audit Logs
+              </button>
+              <button
+                onClick={() => setActiveTab('policies')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'policies' 
+                    ? 'text-emerald-600 bg-emerald-50' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <FileText className="h-4 w-4 inline mr-1" />
+                Policies
+              </button>
               <div className="flex items-center space-x-3">
                 <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">
-                    {authState.user?.firstName} {authState.user?.lastName}
-                  </div>
-                  <div className="text-xs text-gray-500">{authState.user?.email}</div>
+                  <div className="text-sm font-medium text-gray-900">Guest</div>
+                  <div className="text-xs text-gray-500">guest@example.com</div>
                 </div>
                 <button
                   onClick={handleLogout}

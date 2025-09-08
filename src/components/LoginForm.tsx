@@ -13,8 +13,7 @@ export default function LoginForm({ onLogin, isLoading }: LoginFormProps) {
   const [mfaCode, setMfaCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showMfa, setShowMfa] = useState(false);
-  const [loginStep, setLoginStep] = useState<'credentials' | 'mfa' | 'success'>('credentials');
+  const [loginStep, setLoginStep] = useState<'credentials' | 'success'>('credentials');
   const [error, setError] = useState('');
   const [securityTips, setSecurityTips] = useState<string[]>([]);
 
@@ -43,26 +42,7 @@ export default function LoginForm({ onLogin, isLoading }: LoginFormProps) {
       // Simulate credential validation
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Check if MFA is required (mock logic)
-      const requiresMfa = username.includes('admin') || username.includes('@surveysparrow.com');
-      
-      if (requiresMfa) {
-        setLoginStep('mfa');
-      } else {
-        onLogin({ username, password, rememberMe });
-      }
-    } else if (loginStep === 'mfa') {
-      if (!mfaCode) {
-        setError('Please enter your MFA code');
-        return;
-      }
-
-      if (mfaCode.length !== 6) {
-        setError('MFA code must be 6 digits');
-        return;
-      }
-
-      onLogin({ username, password, mfaCode, rememberMe });
+      onLogin({ username, password, rememberMe });
     }
   };
 
@@ -184,56 +164,7 @@ export default function LoginForm({ onLogin, isLoading }: LoginFormProps) {
             </>
           )}
 
-          {loginStep === 'mfa' && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <Smartphone className="mx-auto h-12 w-12 text-emerald-600" />
-                <h3 className="mt-2 text-lg font-medium text-gray-900">Multi-Factor Authentication</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Enter the 6-digit code from your authenticator app
-                </p>
-              </div>
-              
-              <div>
-                <label htmlFor="mfa-code" className="block text-sm font-medium text-gray-700">
-                  Authentication Code
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="mfa-code"
-                    name="mfa-code"
-                    type="text"
-                    required
-                    value={mfaCode}
-                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-center text-lg tracking-widest"
-                    placeholder="123456"
-                    maxLength={6}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  Demo code: <span className="font-mono font-medium">123456</span>
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleBackToCredentials}
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
-                  ← Back to login
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResendMfa}
-                  className="text-sm text-emerald-600 hover:text-emerald-500"
-                >
-                  Resend code
-                </button>
-              </div>
-            </div>
-          )}
+          {/* MFA step removed */}
 
           <div>
             <button
@@ -244,7 +175,7 @@ export default function LoginForm({ onLogin, isLoading }: LoginFormProps) {
               {isLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
-                loginStep === 'mfa' ? 'Verify & Sign In' : 'Sign In'
+                'Sign In'
               )}
             </button>
           </div>

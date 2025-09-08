@@ -47,10 +47,10 @@ class PolicyService {
   private static instance: PolicyService;
   private policies: AccessPolicy[] = [];
   private violations: PolicyViolation[] = [];
-  private auditService: AuditService;
+  private auditService: any;
 
   private constructor() {
-    this.auditService = AuditService.getInstance();
+    this.auditService = AuditService; // default export is an instance
     this.loadPolicies();
     this.loadViolations();
     this.initializeDefaultPolicies();

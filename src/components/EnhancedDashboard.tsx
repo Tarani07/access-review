@@ -62,9 +62,9 @@ export default function EnhancedDashboard() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
   const [isLoading, setIsLoading] = useState(true);
 
-  const authService = AuthService.getInstance();
-  const auditService = AuditService.getInstance();
-  const policyService = PolicyService.getInstance();
+  const authService = AuthService; // default export is an instance
+  const auditService = AuditService; // default export is an instance
+  const policyService = PolicyService; // default export is an instance
 
   useEffect(() => {
     loadDashboardData();
