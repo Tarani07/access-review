@@ -446,7 +446,7 @@ function App() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Shield className="h-8 w-8 text-emerald-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">IGA Platform</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Sparrowvision</h1>
             </div>
             <nav className="flex items-center space-x-8">
               <button
@@ -942,10 +942,10 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
             <div className="text-center md:text-left">
-              <p className="text-sm text-gray-500">IGA Platform v2.0 • Powered by Sparrow IT</p>
+              <p className="text-sm text-gray-500">Powered by Sparrow IT • Sparrowvision</p>
             </div>
             <div className="text-center md:text-right">
-              <p className="text-sm text-gray-500">Identity Governance & Administration • Made with Passion @ SurveySparrow</p>
+              <p className="text-sm text-gray-500">Powered by Sparrow IT • Sparrowvision</p>
             </div>
           </div>
         </div>
