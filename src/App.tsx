@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Filter, Eye, EyeOff, Shield, BarChart3, FileText, Lock } from 'lucide-react';
+import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Filter, Eye, EyeOff, Shield, Bird, BarChart3, FileText, Lock } from 'lucide-react';
 import ToolManagement from './components/ToolManagement';
 import HistoryView from './components/HistoryView';
 import AddToolModal from './components/AddToolModal';
@@ -445,8 +445,11 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-emerald-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Sparrowvision</h1>
+              <div className="relative mr-3" style={{ width: '32px', height: '32px' }}>
+                <Shield className="h-8 w-8 text-emerald-600" />
+                <Bird className="h-4 w-4 text-white absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+              </div>
+                          <h1 className="text-2xl font-bold text-gray-900">Sparrow Vision</h1>
             </div>
             <nav className="flex items-center space-x-8">
               <button
@@ -942,10 +945,10 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
             <div className="text-center md:text-left">
-              <p className="text-sm text-gray-500">Powered by Sparrow IT • Sparrowvision</p>
+                        <p className="text-sm text-gray-500">Powered by Sparrow IT • Sparrow Vision</p>
             </div>
             <div className="text-center md:text-right">
-              <p className="text-sm text-gray-500">Powered by Sparrow IT • Sparrowvision</p>
+              <p className="text-sm text-gray-500">Reach to It-admin@surveysparrow.com</p>
             </div>
           </div>
         </div>
