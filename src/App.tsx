@@ -7,6 +7,7 @@ import AccessControlGate from './components/AccessControlGate';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import AuditService from './services/audit';
 import PolicyService from './services/policy';
+import ApiService from './services/apiService';
 
 interface UserAccess {
   id: string;
