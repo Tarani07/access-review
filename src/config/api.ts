@@ -1,8 +1,8 @@
 // API Configuration for Sparrow Vision IGA Platform
 
-// Production API URL - Replace with your Railway backend URL
+// Production API URL - Your Railway backend URL
 export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://your-backend.railway.app/api'  // Replace with your actual Railway URL
+  ? 'https://access-review-production.up.railway.app/api'
   : 'http://localhost:3001/api';
 
 // API Endpoints
