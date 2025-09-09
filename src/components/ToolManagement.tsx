@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Key, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Upload, Download, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Key, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Upload, Download, Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Users } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -32,6 +32,8 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState<'paginated' | 'all'>('paginated');
+  const [syncingTools, setSyncingTools] = useState<Set<string>>(new Set());
+  const [syncStatus, setSyncStatus] = useState<Record<string, { status: 'idle' | 'success' | 'error', message: string }>>({});
   
   const [newTool, setNewTool] = useState({ 
     name: '', 
@@ -277,6 +279,80 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
     onUpdateTool(toolId, {
       [fileType === 'userList' ? 'userListFile' : 'exitUsersFile']: file
     });
+  };
+
+  const syncToolUsers = async (tool: Tool) => {
+    if (!tool.apiKey || !tool.apiEndpoint) {
+      setSyncStatus(prev => ({
+        ...prev,
+        [tool.id]: { status: 'error', message: 'API key and endpoint required' }
+      }));
+      return;
+    }
+
+    setSyncingTools(prev => new Set(prev).add(tool.id));
+    setSyncStatus(prev => ({
+      ...prev,
+      [tool.id]: { status: 'idle', message: 'Syncing users...' }
+    }));
+
+    try {
+      // Test connection first
+      const response = await fetch(tool.apiEndpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${tool.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Connection failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const users = Array.isArray(data) ? data : (data.users || []);
+      
+      // Store synced users
+      const usersToStore = users.map((user: any, index: number) => ({
+        id: `user-${Date.now()}-${index}`,
+        tool: tool.name,
+        email: user.email || user.username || `user${index}@${tool.name.toLowerCase()}.com`,
+        role: user.role || 'user',
+        status: 'ACTIVE' as const,
+        lastLogin: user.last_login || user.lastLogin || new Date().toISOString(),
+        permissions: user.permissions || [],
+        syncedAt: new Date().toISOString()
+      }));
+
+      // Store in localStorage for demo
+      const existingUsers = JSON.parse(localStorage.getItem('syncedUsers') || '[]');
+      const updatedUsers = [...existingUsers, ...usersToStore];
+      localStorage.setItem('syncedUsers', JSON.stringify(updatedUsers));
+
+      // Update tool with sync timestamp
+      onUpdateTool(tool.id, { lastSync: new Date().toISOString() });
+
+      setSyncStatus(prev => ({
+        ...prev,
+        [tool.id]: { status: 'success', message: `Successfully synced ${usersToStore.length} users` }
+      }));
+
+    } catch (error) {
+      setSyncStatus(prev => ({
+        ...prev,
+        [tool.id]: { 
+          status: 'error', 
+          message: `Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        }
+      }));
+    } finally {
+      setSyncingTools(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tool.id);
+        return newSet;
+      });
+    }
   };
 
   const getConnectionStatusIcon = (status?: string) => {
@@ -766,6 +842,17 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
                         Last sync: {new Date(tool.lastSync).toLocaleDateString()}
                       </div>
                     )}
+                    {syncStatus[tool.id] && (
+                      <div className={`text-xs mt-1 ${
+                        syncStatus[tool.id].status === 'success' 
+                          ? 'text-green-600' 
+                          : syncStatus[tool.id].status === 'error'
+                          ? 'text-red-600'
+                          : 'text-blue-600'
+                      }`}>
+                        {syncStatus[tool.id].message}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -790,14 +877,24 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
                     ) : (
                       <>
                         {tool.hasApiSupport && (
-                          <button
-                            onClick={() => handleTestConnection(tool.id)}
-                            disabled={!tool.apiKey || testingConnection === tool.id}
-                            className="text-blue-600 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed"
-                            title="Test API connection"
-                          >
-                            <TestTube className="h-4 w-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleTestConnection(tool.id)}
+                              disabled={!tool.apiKey || testingConnection === tool.id}
+                              className="text-blue-600 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                              title="Test API connection"
+                            >
+                              <TestTube className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => syncToolUsers(tool)}
+                              disabled={!tool.apiKey || !tool.apiEndpoint || syncingTools.has(tool.id)}
+                              className="text-emerald-600 hover:text-emerald-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                              title="Sync users from this tool"
+                            >
+                              <RefreshCw className={`h-4 w-4 ${syncingTools.has(tool.id) ? 'animate-spin' : ''}`} />
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleEditTool(tool)}

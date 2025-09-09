@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Key, Globe, Trash2 } from 'lucide-react';
+import { X, Plus, Key, Globe, Trash2, RefreshCw, CheckCircle, AlertCircle, TestTube } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -29,6 +29,11 @@ export default function AddToolModal({ isOpen, onClose, onAddTool }: AddToolModa
     isActive: true,
     hasApiSupport: true
   });
+
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [connectionMessage, setConnectionMessage] = useState('');
+  const [syncedUsers, setSyncedUsers] = useState<any[]>([]);
 
   const categories = [
     'Communication', 
@@ -79,6 +84,92 @@ export default function AddToolModal({ isOpen, onClose, onAddTool }: AddToolModa
       isActive: true,
       hasApiSupport: true
     });
+    setConnectionStatus('idle');
+    setConnectionMessage('');
+    setSyncedUsers([]);
+  };
+
+  const testConnection = async () => {
+    if (!toolData.apiKey || !toolData.apiEndpoint) {
+      setConnectionStatus('error');
+      setConnectionMessage('Please provide both API key and endpoint URL');
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setConnectionStatus('idle');
+    setConnectionMessage('');
+
+    try {
+      // Simulate API call to test connection
+      const response = await fetch(toolData.apiEndpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${toolData.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConnectionStatus('success');
+        setConnectionMessage('Connection successful! Ready to sync users.');
+        
+        // Store the response data for potential user sync
+        if (Array.isArray(data)) {
+          setSyncedUsers(data);
+        } else if (data.users && Array.isArray(data.users)) {
+          setSyncedUsers(data.users);
+        }
+      } else {
+        setConnectionStatus('error');
+        setConnectionMessage(`Connection failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      setConnectionStatus('error');
+      setConnectionMessage(`Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const syncUsers = async () => {
+    if (connectionStatus !== 'success') {
+      setConnectionMessage('Please test connection first');
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setConnectionMessage('Syncing users...');
+
+    try {
+      // Simulate storing users in access review system
+      const usersToStore = syncedUsers.map((user, index) => ({
+        id: `user-${Date.now()}-${index}`,
+        tool: toolData.name,
+        email: user.email || user.username || `user${index}@${toolData.name.toLowerCase()}.com`,
+        role: user.role || 'user',
+        status: 'ACTIVE' as const,
+        lastLogin: user.last_login || user.lastLogin || new Date().toISOString(),
+        permissions: user.permissions || [],
+        syncedAt: new Date().toISOString()
+      }));
+
+      // Here you would typically send this to your backend API
+      console.log('Users to sync:', usersToStore);
+      
+      setConnectionMessage(`Successfully synced ${usersToStore.length} users!`);
+      
+      // Store in localStorage for demo purposes
+      const existingUsers = JSON.parse(localStorage.getItem('syncedUsers') || '[]');
+      const updatedUsers = [...existingUsers, ...usersToStore];
+      localStorage.setItem('syncedUsers', JSON.stringify(updatedUsers));
+      
+    } catch (error) {
+      setConnectionMessage(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTestingConnection(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -191,6 +282,75 @@ export default function AddToolModal({ isOpen, onClose, onAddTool }: AddToolModa
                   <p className="text-xs text-gray-500 mt-1">
                     URL endpoint to remove users from this tool
                   </p>
+                </div>
+
+                {/* Connection Test and Sync Section */}
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-700">API Connection & Sync</h3>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={testConnection}
+                        disabled={isTestingConnection || !toolData.apiKey || !toolData.apiEndpoint}
+                        className="flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm rounded-md transition-colors"
+                      >
+                        <TestTube className="h-4 w-4" />
+                        <span>{isTestingConnection ? 'Testing...' : 'Test Connection'}</span>
+                      </button>
+                      
+                      {connectionStatus === 'success' && (
+                        <button
+                          type="button"
+                          onClick={syncUsers}
+                          disabled={isTestingConnection}
+                          className="flex items-center space-x-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm rounded-md transition-colors"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${isTestingConnection ? 'animate-spin' : ''}`} />
+                          <span>{isTestingConnection ? 'Syncing...' : 'Sync Users'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Connection Status */}
+                  {connectionMessage && (
+                    <div className={`p-3 rounded-md text-sm ${
+                      connectionStatus === 'success' 
+                        ? 'bg-green-50 text-green-700 border border-green-200' 
+                        : connectionStatus === 'error'
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        {connectionStatus === 'success' && <CheckCircle className="h-4 w-4" />}
+                        {connectionStatus === 'error' && <AlertCircle className="h-4 w-4" />}
+                        <span>{connectionMessage}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Synced Users Preview */}
+                  {syncedUsers.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Found {syncedUsers.length} users to sync:
+                      </h4>
+                      <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-md p-2">
+                        {syncedUsers.slice(0, 5).map((user, index) => (
+                          <div key={index} className="text-xs text-gray-600 py-1">
+                            • {user.email || user.username || `User ${index + 1}`} 
+                            {user.role && ` (${user.role})`}
+                          </div>
+                        ))}
+                        {syncedUsers.length > 5 && (
+                          <div className="text-xs text-gray-500 py-1">
+                            ... and {syncedUsers.length - 5} more users
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
