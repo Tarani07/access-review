@@ -101,29 +101,33 @@ export default function AddToolModal({ isOpen, onClose, onAddTool }: AddToolModa
     setConnectionMessage('');
 
     try {
-      // Simulate API call to test connection
-      const response = await fetch(toolData.apiEndpoint, {
-        method: 'GET',
+      // Use our backend proxy to avoid CORS issues
+      const response = await fetch('https://access-review-production.up.railway.app/api/proxy/test-tool', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${toolData.apiKey}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'demo-token'}`
         },
+        body: JSON.stringify({
+          toolName: toolData.name,
+          apiKey: toolData.apiKey,
+          endpoint: toolData.apiEndpoint
+        })
       });
 
       if (response.ok) {
         const data = await response.json();
         setConnectionStatus('success');
-        setConnectionMessage('Connection successful! Ready to sync users.');
+        setConnectionMessage(`Connection successful! Found ${data.totalUsers} users.`);
         
-        // Store the response data for potential user sync
-        if (Array.isArray(data)) {
-          setSyncedUsers(data);
-        } else if (data.users && Array.isArray(data.users)) {
+        // Store the users data
+        if (data.users && Array.isArray(data.users)) {
           setSyncedUsers(data.users);
         }
       } else {
+        const errorData = await response.json();
         setConnectionStatus('error');
-        setConnectionMessage(`Connection failed: ${response.status} ${response.statusText}`);
+        setConnectionMessage(`Connection failed: ${errorData.message || response.statusText}`);
       }
     } catch (error) {
       setConnectionStatus('error');

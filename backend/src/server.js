@@ -15,6 +15,7 @@ import roleRoutes from './routes/roles.js';
 import auditRoutes from './routes/audit.js';
 import policyRoutes from './routes/policies.js';
 import dashboardRoutes from './routes/dashboard.js';
+import proxyRoutes from './routes/proxy.js';
 
 // Import database connection
 import { connectDB } from './config/database.js';
@@ -83,6 +84,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/proxy', proxyRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

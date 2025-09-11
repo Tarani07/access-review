@@ -297,32 +297,41 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
     }));
 
     try {
-      // Test connection first
-      const response = await fetch(tool.apiEndpoint, {
-        method: 'GET',
+      // Use our backend proxy to avoid CORS issues
+      const response = await fetch('https://access-review-production.up.railway.app/api/proxy/test-tool', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${tool.apiKey}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'demo-token'}`
         },
+        body: JSON.stringify({
+          toolName: tool.name,
+          apiKey: tool.apiKey,
+          endpoint: tool.apiEndpoint
+        })
       });
 
       if (!response.ok) {
-        throw new Error(`Connection failed: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Connection failed: ${response.status}`);
       }
 
       const data = await response.json();
-      const users = Array.isArray(data) ? data : (data.users || []);
+      const users = data.users || [];
       
       // Store synced users
       const usersToStore = users.map((user: any, index: number) => ({
-        id: `user-${Date.now()}-${index}`,
+        id: `user-${Date.now()}-${tool.id}-${index}`,
         tool: tool.name,
         email: user.email || user.username || `user${index}@${tool.name.toLowerCase()}.com`,
         role: user.role || 'user',
-        status: 'ACTIVE' as const,
-        lastLogin: user.last_login || user.lastLogin || new Date().toISOString(),
+        status: user.status === 'active' ? 'ACTIVE' : 'INACTIVE',
+        lastLogin: user.lastLogin || new Date().toISOString(),
         permissions: user.permissions || [],
-        syncedAt: new Date().toISOString()
+        syncedAt: new Date().toISOString(),
+        department: user.department || 'Unknown',
+        manager: user.manager || 'Unknown',
+        joinDate: user.joinDate || new Date().toISOString()
       }));
 
       // Store in localStorage for demo
