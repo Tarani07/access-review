@@ -5,6 +5,7 @@ import HistoryView from './components/HistoryView';
 import AddToolModal from './components/AddToolModal';
 import AccessControlGate from './components/AccessControlGate';
 import EnhancedDashboard from './components/EnhancedDashboard';
+import UserManagement from './components/UserManagement';
 import AuditService from './services/audit';
 import PolicyService from './services/policy';
 import ApiService from './services/apiService';
@@ -487,6 +488,17 @@ function App() {
                 Tools
               </button>
               <button
+                onClick={() => setActiveTab('users')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'users' 
+                    ? 'text-emerald-600 bg-emerald-50' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <Users className="h-4 w-4 inline mr-1" />
+                Users
+              </button>
+              <button
                 onClick={() => setActiveTab('history')}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'history' 
@@ -878,6 +890,10 @@ function App() {
             onUpdateTool={handleUpdateTool}
             onDeleteTool={handleDeleteTool}
           />
+        )}
+
+        {activeTab === 'users' && (
+          <UserManagement tools={tools} />
         )}
 
         {activeTab === 'history' && (
