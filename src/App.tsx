@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Filter, Eye, EyeOff, Shield, Bird, BarChart3, FileText, Lock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Eye, Shield, Bird, BarChart3, FileText } from 'lucide-react';
 import ToolManagement from './components/ToolManagement';
 import HistoryView from './components/HistoryView';
 import AddToolModal from './components/AddToolModal';
 import AccessControlGate from './components/AccessControlGate';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import UserManagement from './components/UserManagement';
-import AuditService from './services/audit';
+import BulkUserManagement from './components/BulkUserManagement';
 import PolicyService from './services/policy';
-import ApiService from './services/apiService';
 
 interface UserAccess {
   id: string;
@@ -25,17 +24,15 @@ interface Tool {
   name: string;
   category: string;
   isActive: boolean;
+  hasApiSupport?: boolean;
   apiKey?: string;
   apiEndpoint?: string;
   lastSync?: string;
   connectionStatus?: 'connected' | 'disconnected' | 'testing';
+  userListFile?: File;
+  exitUsersFile?: File;
 }
 
-interface DashboardSummary {
-  totalUsers: number;
-  exitedUsers: number;
-  flaggedAccounts: number;
-}
 
 interface HistoryRecord {
   id: string;
@@ -62,9 +59,12 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [bulkManagementOpen, setBulkManagementOpen] = useState(false);
+  const [bulkManagementUsers, setBulkManagementUsers] = useState<any[]>([]);
+  const [selectedToolForBulk, setSelectedToolForBulk] = useState<string>('');
 
-  const auditService = AuditService;
   const policyService = PolicyService;
+  const currentUser = 'admin@surveysparrow.com';
   
   const [tools, setTools] = useState<Tool[]>([
     // Pre-configured tools with some sample data
@@ -439,6 +439,70 @@ function App() {
     }
   };
 
+  const handleBulkUserManagement = (toolName: string) => {
+    const toolUsers = userAccessData.filter(user => user.tool === toolName);
+    setBulkManagementUsers(toolUsers);
+    setSelectedToolForBulk(toolName);
+    setBulkManagementOpen(true);
+  };
+
+  const handleBulkAction = async (action: string, userIds: string[]) => {
+    setIsLoading(true);
+    
+    try {
+      // Simulate API calls for bulk actions
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      switch (action) {
+        case 'deactivate':
+          // Update user status to inactive
+          setUserAccessData(prev => 
+            prev.map(user => 
+              userIds.includes(user.id) 
+                ? { ...user, status: 'EXITED' as const }
+                : user
+            )
+          );
+          break;
+        case 'send_email':
+          // Simulate sending emails
+          console.log(`Sending emails to ${userIds.length} users`);
+          break;
+        case 'export':
+          // Export functionality is handled in the component
+          break;
+        case 'flag':
+          // Flag users for review
+          setUserAccessData(prev => 
+            prev.map(user => 
+              userIds.includes(user.id) 
+                ? { ...user, isFlagged: true }
+                : user
+            )
+          );
+          break;
+      }
+      
+      // Add to history
+      const newHistoryRecord: HistoryRecord = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        tool: selectedToolForBulk,
+        action: action.toUpperCase() as any,
+        userEmail: `${userIds.length} users`,
+        performedBy: currentUser,
+        details: `Bulk ${action} performed on ${userIds.length} users`
+      };
+      setHistoryRecords(prev => [newHistoryRecord, ...prev]);
+      
+    } catch (error) {
+      console.error('Bulk action failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AccessControlGate currentUser={''}>
     <div className="min-h-screen bg-gray-50 font-['Inter',sans-serif]">
@@ -757,6 +821,15 @@ function App() {
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium text-gray-900">Access Review Results</h3>
                       <div className="flex space-x-2">
+                        {selectedTool && selectedTool !== 'all' && (
+                          <button
+                            onClick={() => handleBulkUserManagement(selectedTool)}
+                            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md font-medium flex items-center space-x-2 transition-colors"
+                          >
+                            <Users className="h-4 w-4" />
+                            <span>Bulk Manage</span>
+                          </button>
+                        )}
                         <button
                           onClick={handleSendEmail}
                           disabled={selectedUsers.length === 0 || isLoading}
@@ -931,7 +1004,7 @@ function App() {
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Violations</h3>
                 <div className="space-y-3">
-                  {policyService.getViolations({ limit: 5 }).map(violation => (
+                  {policyService.getViolations().slice(0, 5).map(violation => (
                     <div key={violation.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-gray-900">{violation.policyName}</h4>
@@ -977,6 +1050,20 @@ function App() {
         onClose={() => setIsAddToolModalOpen(false)}
         onAddTool={handleAddNewTool}
       />
+
+      {/* Bulk User Management Modal */}
+      {bulkManagementOpen && (
+        <BulkUserManagement
+          users={bulkManagementUsers}
+          toolName={selectedToolForBulk}
+          onBulkAction={handleBulkAction}
+          onClose={() => {
+            setBulkManagementOpen(false);
+            setBulkManagementUsers([]);
+            setSelectedToolForBulk('');
+          }}
+        />
+      )}
     </div>
     </AccessControlGate>
   );

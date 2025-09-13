@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Key, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Upload, Download, Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Key, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Upload, Download, Search, Filter, ChevronLeft, ChevronRight, RefreshCw, BarChart3 } from 'lucide-react';
+import CSVComparison from './CSVComparison';
 
 interface Tool {
   id: string;
   name: string;
   category: string;
   isActive: boolean;
-  hasApiSupport: boolean;
+  hasApiSupport?: boolean;
   apiKey?: string;
   apiEndpoint?: string;
   lastSync?: string;
@@ -55,6 +56,8 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
   });
   const [showApiKeys, setShowApiKeys] = useState<{ [key: string]: boolean }>({});
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
+  const [csvComparisonOpen, setCsvComparisonOpen] = useState(false);
+  const [selectedToolForComparison, setSelectedToolForComparison] = useState<string | null>(null);
 
   const categories = [
     'Communication', 
@@ -72,93 +75,207 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
     'Analytics',
     'Physical Security',
     'AI & Productivity',
+    'Access Review',
+    'Email Services',
+    'Data & Integration',
+    'Customer Support',
+    'Content & SEO',
+    'Development Tools',
+    'Domain & Hosting',
+    'Business Tools',
+    'Specialized Tools',
     'Other'
   ];
 
   const predefinedTools = [
-    // Communication
+    // Communication & Collaboration
     { name: 'Slack', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://slack.com/api' },
-    { name: 'Zoom', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.zoom.us/v2' },
-    { name: 'Ringcentral', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://platform.ringcentral.com' },
-    { name: 'Twilio', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.twilio.com' },
-    { name: 'Twilio - Staging', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.twilio.com' },
+    { name: 'Zoom Video Communications', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.zoom.us/v2' },
+    { name: 'RingCentral', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://platform.ringcentral.com' },
+    { name: 'Skype', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.skype.com' },
+    { name: 'Aircall.io', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.aircall.io/v1' },
+    { name: 'Calendly', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.calendly.com' },
+    { name: 'Loom', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.loom.com/v1' },
+    { name: 'Vimeo', category: 'Communication', hasApiSupport: true, apiEndpoint: 'https://api.vimeo.com' },
     
-    // Development
-    { name: 'Github Copilot', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.github.com' },
+    // Development & DevOps
+    { name: 'GitHub Copilot', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.github.com' },
     { name: 'Bitbucket', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.bitbucket.org/2.0' },
-    { name: 'NPM', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://registry.npmjs.org' },
-    { name: 'v0.dev', category: 'Development', hasApiSupport: false },
+    { name: 'NPM Org', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://registry.npmjs.org' },
+    { name: 'Jira', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.atlassian.com/ex/jira' },
+    { name: 'Confluence', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.atlassian.com/ex/confluence' },
+    { name: 'Sentry - Production - SS', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://sentry.io/api/0' },
+    { name: 'Sentry - Production - TS', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://sentry.io/api/0' },
+    { name: 'Sentry - Staging', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://sentry.io/api/0' },
+    { name: 'Testsigma', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.testsigma.com/v1' },
+    { name: 'Browserstack', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.browserstack.com' },
+    { name: 'Burpsuite', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://portswigger.net/burp/api' },
+    { name: 'NGROK.COM', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.ngrok.com' },
+    { name: 'Zapier', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.zapier.com/v1' },
+    { name: 'Clickup', category: 'Development', hasApiSupport: true, apiEndpoint: 'https://api.clickup.com/api/v2' },
     
-    // Design
+    // Design & Creative
     { name: 'Figma', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.figma.com/v1' },
-    { name: 'Creative Cloud', category: 'Design', hasApiSupport: false },
+    { name: 'Adobe Creative Cloud', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.adobe.com' },
     { name: 'Canva', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.canva.com/rest/v1' },
+    { name: 'Whimsical', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.whimsical.com/v1' },
+    { name: 'Webflow', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.webflow.com/v2' },
+    { name: 'Unbounce', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.unbounce.com/v2' },
+    { name: 'Rawpixel', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.rawpixel.com/v1' },
+    { name: 'Freepik', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.freepik.com/v1' },
+    { name: 'Iconscout', category: 'Design', hasApiSupport: true, apiEndpoint: 'https://api.iconscout.com/v3' },
     
-    // Cloud Services
+    // Cloud & Infrastructure
     { name: 'AWS', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://iam.amazonaws.com' },
-    { name: 'Office 365', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://graph.microsoft.com/v1.0' },
-    { name: 'Gsuite', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://admin.googleapis.com' },
+    { name: 'Google Cloud', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://cloudresourcemanager.googleapis.com/v1' },
+    { name: 'Microsoft 365 for Business', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://graph.microsoft.com/v1.0' },
+    { name: 'Microsoft 365 for Business Basic', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://graph.microsoft.com/v1.0' },
+    { name: 'G Suite Enterprise (Fixed 300 license)', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://admin.googleapis.com' },
+    { name: 'G Suite Basic', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://admin.googleapis.com' },
+    { name: 'Cloudflare', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://api.cloudflare.com/client/v4' },
+    { name: 'Forticloud', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://api.forticloud.com' },
+    { name: 'Fortigate Firewall', category: 'Cloud Services', hasApiSupport: true, apiEndpoint: 'https://api.fortinet.com' },
     
-    // Project Management
-    { name: 'Altassian', category: 'Project Management', hasApiSupport: true, apiEndpoint: 'https://api.atlassian.com' },
+    // Monitoring & Analytics
+    { name: 'New Relic', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.newrelic.com/v2' },
+    { name: 'Logz.io', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.logz.io/v1' },
+    { name: 'UptimeRobot - SS', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.uptimerobot.com/v2' },
+    { name: 'UptimeRobot - TS', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.uptimerobot.com/v2' },
+    { name: 'Zenduty', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.zenduty.com/v1' },
+    { name: 'Crazy Egg', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.crazyegg.com/v1' },
+    { name: 'LuckyOrange', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.luckyorange.com/v1' },
+    { name: 'Heap Analytics', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.heapanalytics.com/v1' },
+    { name: 'Power Bi Premium', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.powerbi.com/v1.0' },
+    { name: 'Power Bi Pro', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.powerbi.com/v1.0' },
+    { name: 'Google Analytics', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://analyticsreporting.googleapis.com/v4' },
+    { name: 'Google Search Console', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://searchconsole.googleapis.com/v1' },
+    { name: 'Ahrefs', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://apiv2.ahrefs.com' },
+    { name: 'SurferSEO', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.surfer.com/v1' },
+    { name: 'Read.ai', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://api.read.ai/v1' },
     
-    // Monitoring
-    { name: 'Newrelic', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.newrelic.com/v2' },
-    { name: 'Newrelic Staging', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.newrelic.com/v2' },
-    { name: 'Sentry', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://sentry.io/api/0' },
-    { name: 'Logzio', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.logz.io/v1' },
-    { name: 'Logzio Staging', category: 'Monitoring', hasApiSupport: true, apiEndpoint: 'https://api.logz.io/v1' },
-    
-    // IT Management
-    { name: 'SnipeIT', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://snipe-it.surveysparrow.com/api/v1' },
-    { name: 'Hexnode', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://api.hexnode.com' },
-    { name: 'Endpoint Central', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://api.manageengine.com' },
-    { name: 'Jumpcloud', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://console.jumpcloud.com/api' },
-    
-    // Security
-    { name: 'Heimdal Security', category: 'Security', hasApiSupport: true, apiEndpoint: 'https://api.heimdalsecurity.com' },
-    { name: 'CCTV - Kochi', category: 'Physical Security', hasApiSupport: false },
-    { name: 'Biometric - Kochi', category: 'Physical Security', hasApiSupport: false },
-    { name: 'CCTV - Chennai', category: 'Physical Security', hasApiSupport: false },
-    { name: 'Biometric - Chennai', category: 'Physical Security', hasApiSupport: false },
+    // IT Management & Security
+    { name: 'Jump Cloud', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://console.jumpcloud.com/api' },
+    { name: 'End Point Central', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://api.manageengine.com' },
+    { name: 'Heimdal - Anti Virus', category: 'Security', hasApiSupport: true, apiEndpoint: 'https://api.heimdalsecurity.com' },
+    { name: 'Auzmor', category: 'IT Management', hasApiSupport: true, apiEndpoint: 'https://api.auzmor.com/v1' },
     
     // HR & Recruitment
-    { name: 'Greythr', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.greythr.com' },
-    { name: 'Springverify', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.springverify.com' },
-    { name: 'Zappyhire', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.zappyhire.com' },
-    { name: 'Keka', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.keka.com' },
+    { name: 'LinkedIn - HR team', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.linkedin.com/v2' },
+    { name: 'KeKa', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.keka.com' },
+    { name: 'Evalgator Candidate Evaluation Platform', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.evalgator.com/v1' },
+    { name: 'Gusto', category: 'HR & Recruitment', hasApiSupport: true, apiEndpoint: 'https://api.gusto.com/v1' },
     
     // Finance & Accounting
     { name: 'Quickbooks', category: 'Finance & Accounting', hasApiSupport: true, apiEndpoint: 'https://sandbox-quickbooks.api.intuit.com' },
     { name: 'Stripe', category: 'Finance & Accounting', hasApiSupport: true, apiEndpoint: 'https://api.stripe.com/v1' },
+    { name: 'Paddle (Vendor for Partnership management tool)', category: 'Finance & Accounting', hasApiSupport: true, apiEndpoint: 'https://api.paddle.com/v2' },
+    { name: 'FastSpring', category: 'Finance & Accounting', hasApiSupport: true, apiEndpoint: 'https://api.fastspring.com' },
+    { name: 'Astrella - LTSE Cap Table', category: 'Finance & Accounting', hasApiSupport: true, apiEndpoint: 'https://api.astrella.com/v1' },
     
     // Marketing & Sales
     { name: 'Hubspot', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.hubapi.com' },
-    { name: 'Outplay', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.outplayhq.com' },
-    { name: 'Apollo', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.apollo.io/v1' },
-    { name: 'Linkedin Sales Navigator', category: 'Marketing & Sales', hasApiSupport: false },
+    { name: 'Apollo.io', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.apollo.io/v1' },
+    { name: 'Vitally', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.vitally.io/v1' },
     { name: 'Zendesk', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.zendesk.com/api/v2' },
-    { name: 'Sendgrid Production', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.sendgrid.com/v3' },
-    { name: 'Sendgrid', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.sendgrid.com/v3' },
-    { name: 'Sendgrid Staging', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.sendgrid.com/v3' },
-    { name: 'Brevo', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.brevo.com/v3' },
+    { name: 'LinkedIn - Sales Navigator', category: 'Marketing & Sales', hasApiSupport: false },
+    { name: 'Outplay', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.outplayhq.com' },
+    { name: 'Lemlist', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.lemlist.com/v1' },
+    { name: 'Clay Labs', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.clay.com/v1' },
+    { name: 'Easyleadz', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.easyleadz.com/v1' },
+    { name: 'Respona', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.respona.com/v1' },
+    { name: 'ReachInbox', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.reachinbox.com/v1' },
+    { name: 'SaaSAnt', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.saasant.com/v1' },
+    { name: 'PartnerStack', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.partnerstack.com/v1' },
+    { name: 'PartnerStack - Usage based', category: 'Marketing & Sales', hasApiSupport: true, apiEndpoint: 'https://api.partnerstack.com/v1' },
     
-    // Analytics
-    { name: 'Analytics', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://analyticsreporting.googleapis.com/v4' },
-    { name: 'Google search console', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://searchconsole.googleapis.com/v1' },
-    { name: 'Ahref', category: 'Analytics', hasApiSupport: true, apiEndpoint: 'https://apiv2.ahrefs.com' },
+    // Email & Communication Services
+    { name: 'Sendgrid - (Engineering)', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sendgrid.com/v3' },
+    { name: 'Sendgrid- (Marketing)', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sendgrid.com/v3' },
+    { name: 'SparkPost - US - Production - SS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sparkpost.com/api/v1' },
+    { name: 'SparkPost - EU - Production - SS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sparkpost.com/api/v1' },
+    { name: 'SparkPost - US - Production - TS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sparkpost.com/api/v1' },
+    { name: 'SparkPost - EU - Production - TS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sparkpost.com/api/v1' },
+    { name: 'SparkPost - Staging - SS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.sparkpost.com/api/v1' },
+    { name: 'Sinch Mailgun - Production', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.mailgun.net/v3' },
+    { name: 'Sinch Mailgun - Staging', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.mailgun.net/v3' },
+    { name: 'Sendinblue - SS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.brevo.com/v3' },
+    { name: 'Sendinblue - TS', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.brevo.com/v3' },
+    { name: 'Twilio - Staging', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.twilio.com' },
+    { name: 'Twilio - Production', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.twilio.com' },
+    { name: 'Mailosaur', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://mailosaur.com/api' },
+    { name: 'DeBounce', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.debounce.io/v1' },
+    { name: 'VoilaNorbert', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.voilanorbert.com/v1' },
+    { name: 'Zerobounce', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.zerobounce.net/v2' },
+    { name: 'Quick Email Verification', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.quickemailverification.com/v1' },
+    { name: 'Public Data Check', category: 'Email Services', hasApiSupport: true, apiEndpoint: 'https://api.publicdatacheck.com/v1' },
     
     // AI & Productivity
-    { name: 'ChatGPT', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.openai.com/v1' },
-    { name: 'Cursor Pro', category: 'AI & Productivity', hasApiSupport: false },
-    { name: 'Anthropic', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.anthropic.com' },
-    { name: 'Grammarly', category: 'AI & Productivity', hasApiSupport: false },
+    { name: 'Open AI (Chatgpt) - Production', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.openai.com/v1' },
+    { name: 'Open AI (Chatgpt) - Subscription', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.openai.com/v1' },
+    { name: 'Claude.ai', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.anthropic.com' },
+    { name: 'Perplexity AI', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.perplexity.ai/v1' },
+    { name: 'Compose AI', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.compose.ai/v1' },
+    { name: 'HeyGen', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.heygen.com/v1' },
+    { name: 'Originality.AI', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.originality.ai/v1' },
+    { name: 'Midjourney', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.midjourney.com/v1' },
+    { name: 'Grammarly', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.grammarly.com/v1' },
+    { name: 'Evabot', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.evabot.com/v1' },
+    { name: 'Evaboot', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.evaboot.com/v1' },
+    { name: 'Zipy.AI - SS', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.zipy.ai/v1' },
+    { name: 'Zipy.AI - TS', category: 'AI & Productivity', hasApiSupport: true, apiEndpoint: 'https://api.zipy.ai/v1' },
     
-    // Other
-    { name: 'Dropbox Sign', category: 'Other', hasApiSupport: true, apiEndpoint: 'https://api.hellosign.com/v3' },
-    { name: 'Area51', category: 'Other', hasApiSupport: false },
-    { name: 'Entries.ai', category: 'Other', hasApiSupport: true, apiEndpoint: 'https://api.entries.ai' },
-    { name: 'Flex', category: 'Other', hasApiSupport: false },
+    // Data & Integration
+    { name: 'Fivetran', category: 'Data & Integration', hasApiSupport: true, apiEndpoint: 'https://api.fivetran.com/v1' },
+    { name: 'Airbyte', category: 'Data & Integration', hasApiSupport: true, apiEndpoint: 'https://api.airbyte.com/v1' },
+    { name: 'Merge API', category: 'Data & Integration', hasApiSupport: true, apiEndpoint: 'https://api.merge.dev/v1' },
+    { name: 'Datawarehouse.io', category: 'Data & Integration', hasApiSupport: true, apiEndpoint: 'https://api.datawarehouse.io/v1' },
+    { name: 'Airtable', category: 'Data & Integration', hasApiSupport: true, apiEndpoint: 'https://api.airtable.com/v0' },
+    { name: 'Rows', category: 'Data & Integration', hasApiSupport: true, apiEndpoint: 'https://api.rows.com/v1' },
+    
+    // Customer Support & Communication
+    { name: 'Intercom', category: 'Customer Support', hasApiSupport: true, apiEndpoint: 'https://api.intercom.io/v2' },
+    { name: 'Discourse', category: 'Customer Support', hasApiSupport: true, apiEndpoint: 'https://api.discourse.org/v1' },
+    { name: 'Fireflies', category: 'Customer Support', hasApiSupport: true, apiEndpoint: 'https://api.fireflies.ai/v1' },
+    { name: 'Read.ai', category: 'Customer Support', hasApiSupport: true, apiEndpoint: 'https://api.read.ai/v1' },
+    
+    // Content & SEO
+    { name: 'Content Square Inc.', category: 'Content & SEO', hasApiSupport: true, apiEndpoint: 'https://api.contentsquare.com/v1' },
+    { name: 'Reviewshake/ Datashake', category: 'Content & SEO', hasApiSupport: true, apiEndpoint: 'https://api.reviewshake.com/v1' },
+    { name: 'Litmus', category: 'Content & SEO', hasApiSupport: true, apiEndpoint: 'https://api.litmus.com/v1' },
+    { name: 'Disqus', category: 'Content & SEO', hasApiSupport: true, apiEndpoint: 'https://disqus.com/api/3.0' },
+    { name: 'Cookieyes', category: 'Content & SEO', hasApiSupport: true, apiEndpoint: 'https://api.cookieyes.com/v1' },
+    
+    // Development Tools & Testing
+    { name: 'Jam F', category: 'Development Tools', hasApiSupport: true, apiEndpoint: 'https://api.jamf.com/v1' },
+    { name: 'Arcade Software', category: 'Development Tools', hasApiSupport: true, apiEndpoint: 'https://api.arcade.software/v1' },
+    { name: 'Crystal Project', category: 'Development Tools', hasApiSupport: true, apiEndpoint: 'https://api.crystalproject.com/v1' },
+    { name: 'GROKABILITY', category: 'Development Tools', hasApiSupport: true, apiEndpoint: 'https://api.grokability.com/v1' },
+    
+    // Domain & Hosting
+    { name: 'Namecheap', category: 'Domain & Hosting', hasApiSupport: true, apiEndpoint: 'https://api.namecheap.com/xml.response' },
+    { name: 'GoDaddy', category: 'Domain & Hosting', hasApiSupport: true, apiEndpoint: 'https://api.godaddy.com/v1' },
+    { name: 'Tasjeel - Domain', category: 'Domain & Hosting', hasApiSupport: true, apiEndpoint: 'https://api.tasjeel.com/v1' },
+    { name: 'Apple.com', category: 'Domain & Hosting', hasApiSupport: true, apiEndpoint: 'https://api.apple.com/v1' },
+    
+    // Business & Productivity
+    { name: 'Dropbox Sign', category: 'Business Tools', hasApiSupport: true, apiEndpoint: 'https://api.hellosign.com/v3' },
+    { name: 'Dropbox Storage', category: 'Business Tools', hasApiSupport: true, apiEndpoint: 'https://api.dropboxapi.com/2' },
+    { name: 'Cab Management Tool', category: 'Business Tools', hasApiSupport: true, apiEndpoint: 'https://api.cabmanagement.com/v1' },
+    { name: 'Document Studio', category: 'Business Tools', hasApiSupport: true, apiEndpoint: 'https://api.documentstudio.com/v1' },
+    { name: 'Sejda', category: 'Business Tools', hasApiSupport: true, apiEndpoint: 'https://api.sejda.com/v1' },
+    { name: 'Virtualpost', category: 'Business Tools', hasApiSupport: true, apiEndpoint: 'https://api.virtualpost.com/v1' },
+    
+    // Specialized Tools
+    { name: 'Entries ai', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.entries.ai' },
+    { name: 'Cybot', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.cybot.com/v1' },
+    { name: 'CM.COM', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.cm.com/v1' },
+    { name: 'AppSumo', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.appsumo.com/v1' },
+    { name: 'Indie Hackers', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.indiehackers.com/v1' },
+    { name: 'Copyscape', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.copyscape.com/v1' },
+    { name: 'Blogarama', category: 'Specialized Tools', hasApiSupport: true, apiEndpoint: 'https://api.blogarama.com/v1' },
+    
+    // Access Review Tools
+    { name: 'Zuluri', category: 'Access Review', hasApiSupport: true, apiEndpoint: 'https://api.zuluri.com/v1' },
   ];
 
   // Filter and search logic
@@ -268,7 +385,7 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
     const status = isSuccess ? 'connected' : 'disconnected';
     
     onUpdateTool(toolId, { 
-      connectionStatus: status,
+      connectionStatus: status as 'connected' | 'disconnected' | 'testing',
       lastSync: isSuccess ? new Date().toISOString() : undefined
     });
     
@@ -279,6 +396,21 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
     onUpdateTool(toolId, {
       [fileType === 'userList' ? 'userListFile' : 'exitUsersFile']: file
     });
+  };
+
+  const handleCSVComparison = (toolId: string) => {
+    const tool = tools.find(t => t.id === toolId);
+    if (tool) {
+      setSelectedToolForComparison(tool.name);
+      setCsvComparisonOpen(true);
+    }
+  };
+
+  const handleComparisonComplete = (results: any) => {
+    console.log('Comparison completed:', results);
+    // Here you could store the results or trigger other actions
+    setCsvComparisonOpen(false);
+    setSelectedToolForComparison(null);
   };
 
   const syncToolUsers = async (tool: Tool) => {
@@ -687,6 +819,7 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Integration Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">API Configuration</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CSV Upload</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CSV Analysis</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
@@ -830,6 +963,25 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
                       </label>
                       {tool.exitUsersFile && (
                         <span className="text-xs text-green-600 block mt-1">{tool.exitUsersFile.name}</span>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleCSVComparison(tool.id)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium flex items-center space-x-1 transition-colors"
+                      title="Compare user data with exit users"
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                      <span>Compare</span>
+                    </button>
+                    <div className="text-xs text-gray-500">
+                      {tool.userListFile && tool.exitUsersFile ? (
+                        <span className="text-green-600">Ready for analysis</span>
+                      ) : (
+                        <span className="text-gray-400">Upload files first</span>
                       )}
                     </div>
                   </div>
@@ -1002,6 +1154,18 @@ export default function ToolManagement({ tools, onAddTool, onUpdateTool, onDelet
             </button>
           )}
         </div>
+      )}
+
+      {/* CSV Comparison Modal */}
+      {csvComparisonOpen && selectedToolForComparison && (
+        <CSVComparison
+          toolName={selectedToolForComparison}
+          onComparisonComplete={handleComparisonComplete}
+          onClose={() => {
+            setCsvComparisonOpen(false);
+            setSelectedToolForComparison(null);
+          }}
+        />
       )}
     </div>
   );
