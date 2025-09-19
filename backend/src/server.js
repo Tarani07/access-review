@@ -52,11 +52,24 @@ app.use(limiter);
 
 // Handle preflight OPTIONS requests explicitly
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '3600');
+  const origin = req.headers.origin;
+  
+  // Only set origin if it's from allowed domains
+  if (origin && (
+    origin === 'https://access-reviewsp.netlify.app' ||
+    origin.includes('.netlify.app') ||
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1')
+  )) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.header('Access-Control-Allow-Origin', 'https://access-reviewsp.netlify.app');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
+  res.header('Access-Control-Max-Age', '86400');
   res.status(200).end();
 });
 
@@ -64,49 +77,53 @@ app.options('*', (req, res) => {
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow all Netlify domains temporarily for debugging
-    if (origin.includes('.netlify.app')) {
+    if (!origin) {
       return callback(null, true);
     }
     
-    // Allow localhost for development
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-    
-    // Allow the configured frontend URL
+    // Define allowed origins explicitly (no wildcards)
     const allowedOrigins = [
-      process.env.FRONTEND_URL || 'http://localhost:5173',
+      'https://access-reviewsp.netlify.app',
       'https://access-review-production.up.railway.app',
-      'https://access-reviewsp.netlify.app', // Your specific Netlify domain
-      'https://*.netlify.app',
-      'https://*.railway.app'
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
     ];
     
-    // Check if origin is in allowed list or matches a pattern
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (allowedOrigin.includes('*')) {
-        const pattern = allowedOrigin.replace(/\*/g, '.*').replace(/\./g, '\\.');
-        return new RegExp(`^${pattern}$`).test(origin);
-      }
-      return allowedOrigin === origin;
-    });
+    // Add FRONTEND_URL if set
+    if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
     
-    if (isAllowed) {
+    // Check for Netlify preview deployments
+    if (origin.endsWith('.netlify.app')) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.log(`CORS blocked origin: ${origin}`);
       console.log(`Allowed origins:`, allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false); // Don't throw error, just deny
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Length'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 app.use(cors(corsOptions));
@@ -114,14 +131,22 @@ app.use(cors(corsOptions));
 // Add additional CORS headers manually
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (
-    origin.includes('.netlify.app') || 
-    origin.includes('localhost') ||
-    origin === 'https://access-reviewsp.netlify.app'
-  )) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Only set CORS headers for valid origins
+  if (origin) {
+    const allowedOrigins = [
+      'https://access-reviewsp.netlify.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ];
+    
+    if (allowedOrigins.includes(origin) || origin.endsWith('.netlify.app')) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Vary', 'Origin');
+    }
   }
+  
   next();
 });
 
