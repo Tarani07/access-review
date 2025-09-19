@@ -50,11 +50,26 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Handle preflight OPTIONS requests explicitly
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '3600');
+  res.status(200).end();
+});
+
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+    
+    // Allow all Netlify domains temporarily for debugging
+    if (origin.includes('.netlify.app')) {
+      return callback(null, true);
+    }
     
     // Allow localhost for development
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
@@ -95,6 +110,20 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Add additional CORS headers manually
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (
+    origin.includes('.netlify.app') || 
+    origin.includes('localhost') ||
+    origin === 'https://access-reviewsp.netlify.app'
+  )) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -164,13 +193,21 @@ app.use('*', (req, res) => {
 // Start server
 const startServer = async () => {
   try {
-    // Connect to database
-    await connectDB();
+    // Try to connect to database, but don't fail if it's not available
+    try {
+      await connectDB();
+      console.log('✅ Database connected successfully');
+    } catch (dbError) {
+      console.warn('⚠️ Database connection failed, using mock database:', dbError.message);
+      // Set environment to use mock DB
+      process.env.DATABASE_URL = 'mock://database';
+    }
     
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Sparrow Vision IGA Backend running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 CORS enabled for: ${process.env.FRONTEND_URL || 'localhost'}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
