@@ -208,6 +208,7 @@ const startServer = async () => {
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 CORS enabled for: ${process.env.FRONTEND_URL || 'localhost'}`);
+      console.log(`📡 Allowed origins: Netlify apps, localhost, Railway`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
