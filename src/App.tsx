@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Eye, Shield, Bird, BarChart3, FileText } from 'lucide-react';
+import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Eye, Shield, Bird, BarChart3, FileText, TrendingUp } from 'lucide-react';
 import ToolManagement from './components/ToolManagement';
 import HistoryView from './components/HistoryView';
 import AddToolModal from './components/AddToolModal';
@@ -7,6 +7,7 @@ import AccessControlGate from './components/AccessControlGate';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import UserManagement from './components/UserManagement';
 import BulkUserManagement from './components/BulkUserManagement';
+import DynamicReports from './components/DynamicReports';
 import PolicyService from './services/policy';
 
 interface UserAccess {
@@ -584,6 +585,17 @@ function App() {
                 <FileText className="h-4 w-4 inline mr-1" />
                 Policies
               </button>
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'reports' 
+                    ? 'text-emerald-600 bg-emerald-50' 
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <TrendingUp className="h-4 w-4 inline mr-1" />
+                Dynamic Reports
+              </button>
               <div className="flex items-center space-x-3">
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-900">Guest</div>
@@ -1027,6 +1039,10 @@ function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <DynamicReports />
         )}
       </main>
 

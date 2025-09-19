@@ -16,6 +16,7 @@ import auditRoutes from './routes/audit.js';
 import policyRoutes from './routes/policies.js';
 import dashboardRoutes from './routes/dashboard.js';
 import proxyRoutes from './routes/proxy.js';
+import reportsRoutes from './routes/reports.js';
 
 // Import database connection
 import { connectDB } from './config/database.js';
@@ -64,6 +65,7 @@ const corsOptions = {
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:5173',
       'https://access-review-production.up.railway.app',
+      'https://access-reviewsp.netlify.app', // Your specific Netlify domain
       'https://*.netlify.app',
       'https://*.railway.app'
     ];
@@ -71,8 +73,8 @@ const corsOptions = {
     // Check if origin is in allowed list or matches a pattern
     const isAllowed = allowedOrigins.some(allowedOrigin => {
       if (allowedOrigin.includes('*')) {
-        const pattern = allowedOrigin.replace('*', '.*');
-        return new RegExp(pattern).test(origin);
+        const pattern = allowedOrigin.replace(/\*/g, '.*').replace(/\./g, '\\.');
+        return new RegExp(`^${pattern}$`).test(origin);
       }
       return allowedOrigin === origin;
     });
@@ -80,6 +82,8 @@ const corsOptions = {
     if (isAllowed) {
       callback(null, true);
     } else {
+      console.log(`CORS blocked origin: ${origin}`);
+      console.log(`Allowed origins:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -120,6 +124,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/proxy', proxyRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
