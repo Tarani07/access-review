@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Eye, EyeOff, Shield, Smartphone, AlertCircle, CheckCircle } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Smartphone, AlertCircle, CheckCircle } from 'lucide-react';
 import AuthService from '../services/auth';
+import SurveySparrowLogo from './SurveySparrowLogo';
 
 interface LoginFormProps {
   onLogin: (credentials: { username: string; password: string; mfaCode?: string; rememberMe?: boolean }) => void;
@@ -62,11 +63,11 @@ export default function LoginForm({ onLogin, isLoading }: LoginFormProps) {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-emerald-100">
-            <Shield className="h-6 w-6 text-emerald-600" />
+          <div className="mx-auto h-12 w-12 flex items-center justify-center">
+            <SurveySparrowLogo width={48} height={48} />
           </div>
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            IGA Access Portal
+            SparrowVision IGA Portal
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Identity Governance & Administration System
