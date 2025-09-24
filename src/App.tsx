@@ -8,7 +8,7 @@ import EnhancedDashboard from './components/EnhancedDashboard';
 import UserManagement from './components/UserManagement';
 import BulkUserManagement from './components/BulkUserManagement';
 import DynamicReports from './components/DynamicReports';
-import SurveySparrowLogo from './components/SurveySparrowLogo';
+import Sidebar from './components/Sidebar';
 import PolicyService from './services/policy';
 
 interface UserAccess {
@@ -67,6 +67,16 @@ function App() {
 
   const policyService = PolicyService;
   const currentUser = 'admin@surveysparrow.com';
+
+  const handleTabChange = (tab: string) => {
+    if (tab === 'logout') {
+      // Handle logout logic here
+      console.log('Logging out...');
+      // In a real app, you would clear authentication tokens and redirect
+      return;
+    }
+    setActiveTab(tab);
+  };
   
   const [tools, setTools] = useState<Tool[]>([
     // Pre-configured tools with some sample data
@@ -507,112 +517,17 @@ function App() {
 
   return (
     <AccessControlGate currentUser={''}>
-    <div className="min-h-screen bg-gray-50 font-['Inter',sans-serif]">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <SurveySparrowLogo width={32} height={32} className="mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">SparrowVision</h1>
-            </div>
-            <nav className="flex items-center space-x-8">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'dashboard' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <BarChart3 className="h-4 w-4 inline mr-1" />
-                Dashboard
-              </button>
-              <button
-                onClick={() => setActiveTab('access-review')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'access-review' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Eye className="h-4 w-4 inline mr-1" />
-                Access Review
-              </button>
-              <button
-                onClick={() => setActiveTab('tools')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'tools' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Settings className="h-4 w-4 inline mr-1" />
-                Tools
-              </button>
-              <button
-                onClick={() => setActiveTab('users')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'users' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Users className="h-4 w-4 inline mr-1" />
-                Users
-              </button>
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'history' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <History className="h-4 w-4 inline mr-1" />
-                Audit Logs
-              </button>
-              <button
-                onClick={() => setActiveTab('policies')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'policies' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <FileText className="h-4 w-4 inline mr-1" />
-                Policies
-              </button>
-              <button
-                onClick={() => setActiveTab('reports')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'reports' 
-                    ? 'text-emerald-600 bg-emerald-50' 
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <TrendingUp className="h-4 w-4 inline mr-1" />
-                Dynamic Reports
-              </button>
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <div className="text-sm font-medium text-gray-900">Guest</div>
-                  <div className="text-xs text-gray-500">guest@example.com</div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="text-gray-500 hover:text-gray-900 p-2 rounded-md transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-screen bg-gray-50 font-['Inter',sans-serif] flex">
+        {/* Sidebar */}
+        <Sidebar 
+          activeTab={activeTab} 
+          onTabChange={handleTabChange}
+          currentUser={currentUser}
+        />
+        
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-h-screen">
+          <main className="flex-1 p-4 lg:p-8">
         {activeTab === 'dashboard' && (
           <EnhancedDashboard />
         )}
@@ -1039,24 +954,25 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'reports' && (
-          <DynamicReports />
-        )}
-      </main>
+            {activeTab === 'reports' && (
+              <DynamicReports />
+            )}
+          </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
-            <div className="text-center md:text-left">
-                        <p className="text-sm text-gray-500">Powered by Sparrow IT • SparrowVision</p>
+          {/* Footer */}
+          <footer className="bg-white border-t border-gray-200 mt-auto">
+            <div className="px-4 sm:px-6 lg:px-8 py-6">
+              <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
+                <div className="text-center md:text-left">
+                  <p className="text-sm text-gray-500">Powered by Sparrow IT • SparrowVision</p>
+                </div>
+                <div className="text-center md:text-right">
+                  <p className="text-sm text-gray-500">Reach to It-admin@surveysparrow.com</p>
+                </div>
+              </div>
             </div>
-            <div className="text-center md:text-right">
-              <p className="text-sm text-gray-500">Reach to It-admin@surveysparrow.com</p>
-            </div>
-          </div>
+          </footer>
         </div>
-      </footer>
       
       {/* Add Tool Modal */}
       <AddToolModal
