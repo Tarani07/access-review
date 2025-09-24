@@ -10,7 +10,9 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield,
+  Activity
 } from 'lucide-react';
 import SurveySparrowLogo from './SurveySparrowLogo';
 
@@ -21,12 +23,13 @@ interface SidebarProps {
 }
 
 const navigationItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-  { id: 'access-review', label: 'Access Review', icon: Eye },
-  { id: 'tools', label: 'Tools', icon: Settings },
-  { id: 'users', label: 'Users', icon: Users },
-  { id: 'reports', label: 'Reports', icon: FileText },
-  { id: 'history', label: 'History', icon: History }
+  { id: 'dashboard', label: 'Dashboard', icon: BarChart3, description: 'Tools, users & review metrics' },
+  { id: 'tools', label: 'Tools', icon: Settings, description: 'API, Webhook & CSV integrations' },
+  { id: 'users', label: 'Users', icon: Users, description: 'Gshoot sync & user management' },
+  { id: 'access-review', label: 'Access Review', icon: Eye, description: 'User-wise & Tool-wise reviews' },
+  { id: 'rep-doc', label: 'Rep-Doc', icon: FileText, description: 'Reports & Documentation' },
+  { id: 'admin', label: 'SparrowVision Admin', icon: Shield, description: 'User invites & role management' },
+  { id: 'logs', label: 'Logs', icon: Activity, description: 'ISO 27001 audit logs' }
 ];
 
 export default function Sidebar({ activeTab, onTabChange, currentUser }: SidebarProps) {

@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { Upload, Download, Trash2, Users, AlertTriangle, CheckCircle, Search, Mail, Settings, History, LogOut, Plus, Eye, BarChart3, FileText, TrendingUp } from 'lucide-react';
-import ToolManagement from './components/ToolManagement';
-import HistoryView from './components/HistoryView';
-import AddToolModal from './components/AddToolModal';
 import AccessControlGate from './components/AccessControlGate';
-import EnhancedDashboard from './components/EnhancedDashboard';
-import UserManagement from './components/UserManagement';
-import BulkUserManagement from './components/BulkUserManagement';
-import DynamicReports from './components/DynamicReports';
 import Sidebar from './components/Sidebar';
-import PolicyService from './services/policy';
+import NewDashboard from './components/NewDashboard';
+import ToolsSection from './components/ToolsSection';
+// Additional components will be imported as they are created
+// import UsersSection from './components/UsersSection';
+// import AccessReviewSection from './components/AccessReviewSection';
+// import RepDocSection from './components/RepDocSection';
+// import AdminSection from './components/AdminSection';
+// import LogsSection from './components/LogsSection';
 
 interface UserAccess {
   id: string;
@@ -48,24 +47,6 @@ interface HistoryRecord {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isAddToolModalOpen, setIsAddToolModalOpen] = useState(false);
-  const [downloadOnlyFlagged, setDownloadOnlyFlagged] = useState(false);
-  const [searchEmail, setSearchEmail] = useState('');
-  const [filterTool, setFilterTool] = useState('');
-  const [filterRole, setFilterRole] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  
-  const [selectedTool, setSelectedTool] = useState('');
-  const [exitEmails, setExitEmails] = useState('');
-  const [userAccessData, setUserAccessData] = useState<UserAccess[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [bulkManagementOpen, setBulkManagementOpen] = useState(false);
-  const [bulkManagementUsers, setBulkManagementUsers] = useState<any[]>([]);
-  const [selectedToolForBulk, setSelectedToolForBulk] = useState<string>('');
-
-  const policyService = PolicyService;
   const currentUser = 'admin@surveysparrow.com';
 
   const handleTabChange = (tab: string) => {

@@ -1,0 +1,242 @@
+// SparrowVision Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String?
+  role        UserRole @default(VIEW)
+  status      UserStatus @default(ACTIVE)
+  invitedBy   String?
+  invitedAt   DateTime @default(now())
+  lastLogin   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  reviewsCreated AccessReview[]
+  logsCreated    AuditLog[]
+  
+  @@map("users")
+}
+
+// Tools Integration
+model Tool {
+  id            String      @id @default(cuid())
+  name          String      @unique
+  type          ToolType
+  category      String?
+  description   String?
+  integrationUrl String?
+  webhookUrl    String?
+  apiKey        String?     @map("api_key") // encrypted
+  isActive      Boolean     @default(true)
+  lastSync      DateTime?
+  syncStatus    SyncStatus  @default(IDLE)
+  userCount     Int         @default(0)
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  toolUsers     ToolUser[]
+  reviews       AccessReview[]
+  syncHistory   SyncHistory[]
+  
+  @@map("tools")
+}
+
+// Tool Users (synced from integrations)
+model ToolUser {
+  id          String     @id @default(cuid())
+  toolId      String
+  email       String
+  name        String?
+  role        String?
+  permissions String[]   // JSON array of permissions
+  status      UserStatus @default(ACTIVE)
+  lastLogin   DateTime?
+  syncedAt    DateTime   @default(now())
+  
+  // Relations
+  tool        Tool       @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  @@unique([toolId, email])
+  @@map("tool_users")
+}
+
+// Access Reviews
+model AccessReview {
+  id              String        @id @default(cuid())
+  title           String
+  reviewType      ReviewType
+  status          ReviewStatus  @default(PENDING)
+  toolId          String?       // for tool-wise reviews
+  targetUser      String?       // for user-wise reviews
+  totalUsers      Int           @default(0)
+  activeUsers     Int           @default(0)
+  exitUsers       Int           @default(0)
+  removedUsers    Int           @default(0)
+  startedAt       DateTime      @default(now())
+  completedAt     DateTime?
+  createdBy       String
+  notes           String?
+  reportPath      String?       // path to generated report
+  certificatePath String?       // path to certificate
+  
+  // Relations
+  creator         User          @relation(fields: [createdBy], references: [id])
+  tool            Tool?         @relation(fields: [toolId], references: [id])
+  reviewItems     ReviewItem[]
+  
+  @@map("access_reviews")
+}
+
+// Review Items (individual user/tool access items)
+model ReviewItem {
+  id            String        @id @default(cuid())
+  reviewId      String
+  userEmail     String
+  userName      String?
+  toolName      String
+  userRole      String?
+  permissions   String[]
+  status        UserStatus
+  action        ReviewAction  @default(NO_ACTION)
+  reason        String?
+  reviewedAt    DateTime      @default(now())
+  
+  // Relations
+  review        AccessReview  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  @@map("review_items")
+}
+
+// Sync History
+model SyncHistory {
+  id            String      @id @default(cuid())
+  toolId        String
+  status        SyncStatus
+  usersSynced   Int         @default(0)
+  errorMessage  String?
+  startedAt     DateTime    @default(now())
+  completedAt   DateTime?
+  
+  // Relations
+  tool          Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  @@map("sync_history")
+}
+
+// ISO 27001 Audit Logs
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      String      // Login, Sync, Review, etc.
+  category    LogCategory
+  userId      String?
+  userEmail   String?
+  resourceId  String?     // Tool ID, Review ID, etc.
+  resourceType String?    // Tool, Review, User, etc.
+  details     Json?       // Additional context
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime    @default(now())
+  
+  // Relations
+  user        User?       @relation(fields: [userId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+// Slack Integration Settings
+model SlackSettings {
+  id          String    @id @default(cuid())
+  webhookUrl  String
+  isActive    Boolean   @default(true)
+  testSentAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("slack_settings")
+}
+
+// Gshoot (Google Workspace) Integration
+model GshootSync {
+  id            String      @id @default(cuid())
+  totalUsers    Int         @default(0)
+  activeUsers   Int         @default(0)
+  suspendedUsers Int        @default(0)
+  lastSync      DateTime?
+  syncStatus    SyncStatus  @default(IDLE)
+  errorMessage  String?
+  
+  @@map("gshoot_sync")
+}
+
+// Enums
+enum UserRole {
+  VIEW
+  EDIT
+  LOGS
+  INTEGRATION
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  EXIT
+  REMOVED
+}
+
+enum ToolType {
+  API
+  WEBHOOK
+  CSV
+  GOOGLE_WORKSPACE
+}
+
+enum SyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  ERROR
+}
+
+enum ReviewType {
+  USER_WISE
+  TOOL_WISE
+  COMPLETE_REVIEW
+}
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ReviewAction {
+  NO_ACTION
+  REMOVE
+  SUSPEND
+  REACTIVATE
+  UPDATE_ROLE
+}
+
+enum LogCategory {
+  AUTH
+  SYNC
+  REVIEW
+  ADMIN
+  SYSTEM
+  SECURITY
+}
