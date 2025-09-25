@@ -1,0 +1,28 @@
+# IGA User Synchronization Script Dependencies
+# For SparrowVision Identity Governance and Administration
+
+# Core HTTP library for API requests
+requests>=2.31.0
+
+# Additional useful libraries for production deployment
+python-dotenv>=1.0.0        # For .env file support
+pydantic>=2.0.0            # Enhanced data validation
+tenacity>=8.2.0            # Advanced retry mechanisms
+ratelimit>=2.2.1           # Rate limiting utilities
+cryptography>=41.0.0       # For secure credential handling
+
+# Optional: Database connectivity for direct sync
+# psycopg2-binary>=2.9.0   # PostgreSQL
+# pymongo>=4.0.0           # MongoDB
+
+# Optional: Cloud provider SDKs
+# boto3>=1.26.0            # AWS SDK
+# azure-identity>=1.13.0   # Azure SDK
+# google-cloud-core>=2.3.0 # Google Cloud SDK
+
+# Development and testing
+pytest>=7.4.0             # Testing framework
+pytest-cov>=4.1.0         # Coverage reporting
+black>=23.0.0             # Code formatting
+flake8>=6.0.0             # Code linting
+mypy>=1.5.0               # Type checking
