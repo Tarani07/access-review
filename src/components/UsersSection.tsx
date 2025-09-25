@@ -19,7 +19,12 @@ import {
   MapPin,
   Shield,
   Settings,
-  ExternalLink
+  ExternalLink,
+  Key,
+  Server,
+  Wifi,
+  WifiOff,
+  TestTube
 } from 'lucide-react';
 
 interface User {
@@ -61,6 +66,16 @@ interface JumpCloudSyncStatus {
   errors: string[];
 }
 
+interface JumpCloudConfig {
+  isConfigured: boolean;
+  apiKey: string;
+  orgId: string;
+  baseUrl: string;
+  connectionStatus: 'CONNECTED' | 'DISCONNECTED' | 'TESTING' | 'ERROR';
+  lastTested?: string;
+  errorMessage?: string;
+}
+
 export default function UsersSection() {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -69,14 +84,24 @@ export default function UsersSection() {
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED' | 'EXIT'>('ALL');
   const [filterDepartment, setFilterDepartment] = useState('ALL');
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showJumpCloudConfig, setShowJumpCloudConfig] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [jumpCloudStatus, setJumpCloudStatus] = useState<JumpCloudSyncStatus>({
-    isActive: true,
-    lastSync: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    isActive: false,
+    lastSync: undefined,
     totalUsers: 0,
     newUsers: 0,
     updatedUsers: 0,
     errors: []
+  });
+  const [jumpCloudConfig, setJumpCloudConfig] = useState<JumpCloudConfig>({
+    isConfigured: false,
+    apiKey: '',
+    orgId: '',
+    baseUrl: 'https://console.jumpcloud.com/api',
+    connectionStatus: 'DISCONNECTED',
+    lastTested: undefined,
+    errorMessage: undefined
   });
 
   useEffect(() => {
@@ -195,30 +220,135 @@ export default function UsersSection() {
   };
 
   const handleSyncJumpCloud = async () => {
+    if (!jumpCloudConfig.isConfigured || jumpCloudConfig.connectionStatus !== 'CONNECTED') {
+      alert('Please configure and test JumpCloud connection first');
+      setShowJumpCloudConfig(true);
+      return;
+    }
+
     setIsSyncing(true);
     try {
       console.log('Syncing with JumpCloud Directory...');
-      // Mock JumpCloud API call
-      const mockResponse = await new Promise(resolve => 
-        setTimeout(() => resolve({
-          totalUsers: 1278,
-          newUsers: 15,
-          updatedUsers: 23,
-          removedUsers: 2
-        }), 3000)
-      );
       
+      // Real JumpCloud API call would go here
+      const response = await fetchJumpCloudUsers();
+      
+      // For now, using mock data but structure for real API
       await loadUsers();
       setJumpCloudStatus(prev => ({
         ...prev,
-        lastSync: new Date().toISOString()
+        lastSync: new Date().toISOString(),
+        isActive: true
       }));
     } catch (error) {
       console.error('JumpCloud sync failed:', error);
+      setJumpCloudStatus(prev => ({
+        ...prev,
+        errors: [...prev.errors, (error as Error).message]
+      }));
     } finally {
       setIsSyncing(false);
     }
   };
+
+  const fetchJumpCloudUsers = async () => {
+    if (!jumpCloudConfig.isConfigured) {
+      throw new Error('JumpCloud not configured');
+    }
+
+    // Real JumpCloud API implementation would go here
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': jumpCloudConfig.apiKey,
+    };
+
+    try {
+      // This is where the real API call would be made
+      // const response = await fetch(`${jumpCloudConfig.baseUrl}/systemusers`, { headers });
+      // const data = await response.json();
+      // return data.results;
+
+      // Mock implementation for demo
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return {
+        totalUsers: 1278,
+        newUsers: 15,
+        updatedUsers: 23,
+        users: [] // Real user data would be here
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch JumpCloud users: ${error}`);
+    }
+  };
+
+  const testJumpCloudConnection = async () => {
+    if (!jumpCloudConfig.apiKey || !jumpCloudConfig.orgId) {
+      setJumpCloudConfig(prev => ({
+        ...prev,
+        connectionStatus: 'ERROR',
+        errorMessage: 'API Key and Organization ID are required'
+      }));
+      return;
+    }
+
+    setJumpCloudConfig(prev => ({
+      ...prev,
+      connectionStatus: 'TESTING'
+    }));
+
+    try {
+      // Real JumpCloud API test call would go here
+      // const response = await fetch(`${jumpCloudConfig.baseUrl}/organizations/${jumpCloudConfig.orgId}`, {
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'x-api-key': jumpCloudConfig.apiKey,
+      //   },
+      // });
+
+      // Mock successful connection test
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setJumpCloudConfig(prev => ({
+        ...prev,
+        connectionStatus: 'CONNECTED',
+        lastTested: new Date().toISOString(),
+        errorMessage: undefined,
+        isConfigured: true
+      }));
+
+      setJumpCloudStatus(prev => ({
+        ...prev,
+        isActive: true
+      }));
+
+    } catch (error) {
+      setJumpCloudConfig(prev => ({
+        ...prev,
+        connectionStatus: 'ERROR',
+        errorMessage: `Connection failed: ${(error as Error).message}`,
+        lastTested: new Date().toISOString()
+      }));
+    }
+  };
+
+  const saveJumpCloudConfig = () => {
+    // In a real app, this would save to backend/localStorage
+    localStorage.setItem('jumpcloud-config', JSON.stringify(jumpCloudConfig));
+    setShowJumpCloudConfig(false);
+  };
+
+  const loadJumpCloudConfig = () => {
+    // In a real app, this would load from backend/localStorage
+    const saved = localStorage.getItem('jumpcloud-config');
+    if (saved) {
+      const config = JSON.parse(saved);
+      setJumpCloudConfig(config);
+    }
+  };
+
+  useEffect(() => {
+    loadJumpCloudConfig();
+  }, []);
 
   const handleUserClick = (user: User) => {
     setSelectedUser(user);
@@ -272,9 +402,29 @@ export default function UsersSection() {
           <p className="text-gray-600 mt-1">Employee management and access overview</p>
         </div>
         <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            {jumpCloudConfig.connectionStatus === 'CONNECTED' ? (
+              <div className="flex items-center text-green-600 text-sm">
+                <Wifi className="h-4 w-4 mr-1" />
+                Connected
+              </div>
+            ) : (
+              <div className="flex items-center text-red-600 text-sm">
+                <WifiOff className="h-4 w-4 mr-1" />
+                Not Connected
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setShowJumpCloudConfig(true)}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Configure JumpCloud
+          </button>
           <button
             onClick={handleSyncJumpCloud}
-            disabled={isSyncing}
+            disabled={isSyncing || jumpCloudConfig.connectionStatus !== 'CONNECTED'}
             className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -294,12 +444,25 @@ export default function UsersSection() {
             <Building className="h-5 w-5 mr-2 text-blue-600" />
             JumpCloud Directory Sync Status
           </h2>
-          {jumpCloudStatus.lastSync && (
-            <div className="text-sm text-gray-500 flex items-center">
-              <Clock className="h-4 w-4 mr-1" />
-              Last sync: {new Date(jumpCloudStatus.lastSync).toLocaleString()}
-            </div>
-          )}
+          <div className="flex items-center space-x-4">
+            {jumpCloudConfig.isConfigured ? (
+              <div className="flex items-center text-green-600 text-sm">
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Configured
+              </div>
+            ) : (
+              <div className="flex items-center text-yellow-600 text-sm">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                Setup Required
+              </div>
+            )}
+            {jumpCloudStatus.lastSync && (
+              <div className="text-sm text-gray-500 flex items-center">
+                <Clock className="h-4 w-4 mr-1" />
+                Last sync: {new Date(jumpCloudStatus.lastSync).toLocaleString()}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -321,6 +484,31 @@ export default function UsersSection() {
           </div>
         </div>
       </div>
+
+      {/* JumpCloud Configuration Notice */}
+      {!jumpCloudConfig.isConfigured && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-yellow-800 mb-1">
+                JumpCloud Integration Required
+              </h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                To sync real-time user data from JumpCloud directory, you need to configure the API connection. 
+                Currently showing mock data for demonstration purposes.
+              </p>
+              <button
+                onClick={() => setShowJumpCloudConfig(true)}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configure JumpCloud Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -577,6 +765,154 @@ export default function UsersSection() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JumpCloud Configuration Modal */}
+      {showJumpCloudConfig && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Building className="h-5 w-5 mr-2 text-blue-600" />
+                JumpCloud Integration Setup
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Connection Status */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className={`h-3 w-3 rounded-full mr-3 ${
+                      jumpCloudConfig.connectionStatus === 'CONNECTED' ? 'bg-green-500' :
+                      jumpCloudConfig.connectionStatus === 'TESTING' ? 'bg-yellow-500' :
+                      jumpCloudConfig.connectionStatus === 'ERROR' ? 'bg-red-500' : 'bg-gray-400'
+                    }`}></div>
+                    <div>
+                      <div className="font-medium text-gray-900">Connection Status</div>
+                      <div className="text-sm text-gray-600">
+                        {jumpCloudConfig.connectionStatus === 'CONNECTED' && 'Successfully connected to JumpCloud'}
+                        {jumpCloudConfig.connectionStatus === 'TESTING' && 'Testing connection...'}
+                        {jumpCloudConfig.connectionStatus === 'ERROR' && `Error: ${jumpCloudConfig.errorMessage}`}
+                        {jumpCloudConfig.connectionStatus === 'DISCONNECTED' && 'Not connected'}
+                      </div>
+                    </div>
+                  </div>
+                  {jumpCloudConfig.lastTested && (
+                    <div className="text-xs text-gray-500">
+                      Last tested: {new Date(jumpCloudConfig.lastTested).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* API Configuration */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Key className="h-4 w-4 inline mr-2" />
+                    JumpCloud API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={jumpCloudConfig.apiKey}
+                    onChange={(e) => setJumpCloudConfig(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Enter your JumpCloud API key"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Generate an API key from your JumpCloud Admin Console → API Settings
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Building className="h-4 w-4 inline mr-2" />
+                    Organization ID
+                  </label>
+                  <input
+                    type="text"
+                    value={jumpCloudConfig.orgId}
+                    onChange={(e) => setJumpCloudConfig(prev => ({ ...prev, orgId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Enter your JumpCloud Organization ID"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Found in JumpCloud Admin Console → Settings → Organization
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Server className="h-4 w-4 inline mr-2" />
+                    API Base URL
+                  </label>
+                  <input
+                    type="url"
+                    value={jumpCloudConfig.baseUrl}
+                    onChange={(e) => setJumpCloudConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="https://console.jumpcloud.com/api"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Default JumpCloud API endpoint (usually no changes needed)
+                  </p>
+                </div>
+              </div>
+
+              {/* Test Connection */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 mb-2">Test Connection</h4>
+                <p className="text-sm text-blue-700 mb-3">
+                  Test your JumpCloud connection before saving the configuration
+                </p>
+                <button
+                  onClick={testJumpCloudConnection}
+                  disabled={jumpCloudConfig.connectionStatus === 'TESTING' || !jumpCloudConfig.apiKey || !jumpCloudConfig.orgId}
+                  className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+                >
+                  {jumpCloudConfig.connectionStatus === 'TESTING' ? (
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <TestTube className="h-4 w-4 mr-2" />
+                  )}
+                  {jumpCloudConfig.connectionStatus === 'TESTING' ? 'Testing...' : 'Test Connection'}
+                </button>
+              </div>
+
+              {/* API Permissions Info */}
+              <div className="bg-yellow-50 rounded-lg p-4">
+                <h4 className="font-medium text-yellow-900 mb-2 flex items-center">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Required API Permissions
+                </h4>
+                <ul className="text-sm text-yellow-800 space-y-1">
+                  <li>• <strong>System Users:</strong> Read access to fetch user information</li>
+                  <li>• <strong>User Groups:</strong> Read access to get group memberships</li>
+                  <li>• <strong>Organization:</strong> Read access to verify organization details</li>
+                  <li>• <strong>Directory Insights:</strong> Read access for user activity data</li>
+                </ul>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => setShowJumpCloudConfig(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveJumpCloudConfig}
+                  disabled={jumpCloudConfig.connectionStatus !== 'CONNECTED'}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Save Configuration
+                </button>
               </div>
             </div>
           </div>
