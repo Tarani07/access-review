@@ -24,7 +24,7 @@ interface SidebarProps {
 
 const navigationItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, description: 'Tools, users & review metrics' },
-  { id: 'tools', label: 'Tools', icon: Settings, description: 'API, Webhook & CSV integrations' },
+  { id: 'integration-center', label: 'Integration Center', icon: Settings, description: '150+ API & CSV integrations' },
   { id: 'users', label: 'Users', icon: Users, description: 'JumpCloud sync & user management' },
   { id: 'access-review', label: 'Access Review', icon: Eye, description: 'User-wise & Tool-wise reviews' },
   { id: 'rep-doc', label: 'Rep-Doc', icon: FileText, description: 'Reports & Documentation' },

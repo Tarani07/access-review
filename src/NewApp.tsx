@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import AccessControlGate from './components/AccessControlGate';
 import Sidebar from './components/Sidebar';
 import NewDashboard from './components/NewDashboard';
-import ToolsSection from './components/ToolsSection';
+import IntegrationCenter from './components/IntegrationCenter';
 import UsersSection from './components/UsersSection';
 import AccessReviewSection from './components/AccessReviewSection';
 import RepDocSection from './components/RepDocSection';
@@ -28,8 +28,8 @@ function NewApp() {
       case 'dashboard':
         return <NewDashboard onNavigate={setActiveTab} />;
       
-      case 'tools':
-        return <ToolsSection />;
+      case 'integration-center':
+        return <IntegrationCenter />;
       
       case 'users':
         return <UsersSection />;
