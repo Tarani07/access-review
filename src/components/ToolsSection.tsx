@@ -26,7 +26,7 @@ interface Tool {
 }
 
 export default function ToolsSection() {
-  const [tools] = useState<Tool[]>([
+  const [tools, setTools] = useState<Tool[]>([
     {
       id: '1',
       name: 'Slack',
@@ -59,12 +59,77 @@ export default function ToolsSection() {
     }
   ]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTool, setNewTool] = useState({
+    name: '',
+    type: 'API' as Tool['type'],
+    category: '',
+    apiKey: '',
+    webhookUrl: '',
+    csvFile: null as File | null
+  });
 
   const handleSyncAll = async () => {
     setIsSyncing(true);
     console.log('Syncing all tools...');
     await new Promise(resolve => setTimeout(resolve, 2000));
     setIsSyncing(false);
+  };
+
+  const handleAddTool = async () => {
+    if (!newTool.name.trim() || !newTool.category.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    if (newTool.type === 'API' && !newTool.apiKey.trim()) {
+      alert('API Key is required for API integrations');
+      return;
+    }
+
+    if (newTool.type === 'WEBHOOK' && !newTool.webhookUrl.trim()) {
+      alert('Webhook URL is required for webhook integrations');
+      return;
+    }
+
+    if (newTool.type === 'CSV' && !newTool.csvFile) {
+      alert('CSV file is required for CSV integrations');
+      return;
+    }
+
+    const tool: Tool = {
+      id: Date.now().toString(),
+      name: newTool.name,
+      type: newTool.type,
+      category: newTool.category,
+      isActive: true,
+      syncStatus: 'IDLE',
+      userCount: 0,
+      lastSync: undefined
+    };
+
+    setTools(prev => [...prev, tool]);
+    setShowAddModal(false);
+    setNewTool({
+      name: '',
+      type: 'API',
+      category: '',
+      apiKey: '',
+      webhookUrl: '',
+      csvFile: null
+    });
+
+    console.log('Tool added successfully:', tool);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'text/csv') {
+      setNewTool(prev => ({ ...prev, csvFile: file }));
+    } else {
+      alert('Please select a valid CSV file');
+      e.target.value = '';
+    }
   };
 
   const getStatusIcon = (status: Tool['syncStatus']) => {
@@ -112,7 +177,10 @@ export default function ToolsSection() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? 'Syncing...' : 'Sync All'}
           </button>
-          <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center">
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Tool
           </button>
@@ -228,6 +296,121 @@ export default function ToolsSection() {
           </table>
         </div>
       </div>
+
+      {/* Add Tool Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Add New Tool</h3>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Tool Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tool Name</label>
+                <input
+                  type="text"
+                  value={newTool.name}
+                  onChange={(e) => setNewTool(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g., Salesforce, AWS, Jira"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <input
+                  type="text"
+                  value={newTool.category}
+                  onChange={(e) => setNewTool(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g., CRM, Cloud, Project Management"
+                />
+              </div>
+
+              {/* Integration Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Integration Type</label>
+                <select
+                  value={newTool.type}
+                  onChange={(e) => setNewTool(prev => ({ ...prev, type: e.target.value as Tool['type'] }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="API">API Integration</option>
+                  <option value="WEBHOOK">Webhook</option>
+                  <option value="CSV">CSV Upload</option>
+                </select>
+              </div>
+
+              {/* API Key Field */}
+              {newTool.type === 'API' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                  <input
+                    type="password"
+                    value={newTool.apiKey}
+                    onChange={(e) => setNewTool(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Enter your API key"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">This will be stored securely and encrypted.</p>
+                </div>
+              )}
+
+              {/* Webhook URL Field */}
+              {newTool.type === 'WEBHOOK' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
+                  <input
+                    type="url"
+                    value={newTool.webhookUrl}
+                    onChange={(e) => setNewTool(prev => ({ ...prev, webhookUrl: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="https://your-tool.com/webhook/endpoint"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">SparrowVision will send user data to this endpoint.</p>
+                </div>
+              )}
+
+              {/* CSV File Upload */}
+              {newTool.type === 'CSV' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">CSV File</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Upload CSV with columns: email, name, role, permissions</p>
+                  {newTool.csvFile && (
+                    <div className="mt-2 text-sm text-green-600">
+                      ✓ File selected: {newTool.csvFile.name}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddTool}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Add Tool
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

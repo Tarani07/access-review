@@ -39,7 +39,11 @@ interface DashboardStats {
   systemHealth: 'healthy' | 'warning' | 'error';
 }
 
-export default function NewDashboard() {
+interface NewDashboardProps {
+  onNavigate: (section: string) => void;
+}
+
+export default function NewDashboard({ onNavigate }: NewDashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -250,26 +254,38 @@ export default function NewDashboard() {
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center">
-            <Settings className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <button 
+            onClick={() => onNavigate('tools')}
+            className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
+          >
+            <Settings className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
             <div className="font-medium text-gray-700">Add New Tool</div>
             <div className="text-sm text-gray-500">API, Webhook, or CSV</div>
           </button>
           
-          <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center">
-            <Eye className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <button 
+            onClick={() => onNavigate('access-review')}
+            className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
+          >
+            <Eye className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
             <div className="font-medium text-gray-700">Start Access Review</div>
             <div className="text-sm text-gray-500">User-wise or Tool-wise</div>
           </button>
           
-          <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center">
-            <Users className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <div className="font-medium text-gray-700">Sync Gshoot</div>
-            <div className="text-sm text-gray-500">Google Workspace</div>
+          <button 
+            onClick={() => onNavigate('users')}
+            className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
+          >
+            <Users className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+            <div className="font-medium text-gray-700">Sync JumpCloud</div>
+            <div className="text-sm text-gray-500">User directory sync</div>
           </button>
           
-          <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center">
-            <Activity className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <button 
+            onClick={() => onNavigate('logs')}
+            className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
+          >
+            <Activity className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
             <div className="font-medium text-gray-700">View Audit Logs</div>
             <div className="text-sm text-gray-500">ISO 27001 compliant</div>
           </button>

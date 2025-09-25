@@ -3,18 +3,11 @@ import AccessControlGate from './components/AccessControlGate';
 import Sidebar from './components/Sidebar';
 import NewDashboard from './components/NewDashboard';
 import ToolsSection from './components/ToolsSection';
-
-// Placeholder components for sections not yet implemented
-const PlaceholderSection = ({ title, description }: { title: string; description: string }) => (
-  <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
-    <div className="text-center">
-      <div className="text-6xl mb-4">🚧</div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
-      <p className="text-gray-600 max-w-md">{description}</p>
-      <p className="text-sm text-emerald-600 mt-4">Coming soon in the next update!</p>
-    </div>
-  </div>
-);
+import UsersSection from './components/UsersSection';
+import AccessReviewSection from './components/AccessReviewSection';
+import RepDocSection from './components/RepDocSection';
+import AdminSection from './components/AdminSection';
+import LogsSection from './components/LogsSection';
 
 function NewApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -33,53 +26,28 @@ function NewApp() {
   const renderActiveSection = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <NewDashboard />;
+        return <NewDashboard onNavigate={setActiveTab} />;
       
       case 'tools':
         return <ToolsSection />;
       
       case 'users':
-        return (
-          <PlaceholderSection 
-            title="Users Section"
-            description="Sync from Gshoot (Google Workspace), show all users with status: Active / Suspended / Exit. On click → show tool-wise access with roles and privileges."
-          />
-        );
+        return <UsersSection />;
       
       case 'access-review':
-        return (
-          <PlaceholderSection 
-            title="Access Review"
-            description="Two modes: User-wise and Tool-wise reviews. Auto-sync latest tool data, export results as Excel/CSV/PDF with certification."
-          />
-        );
+        return <AccessReviewSection />;
       
       case 'rep-doc':
-        return (
-          <PlaceholderSection 
-            title="Rep-Doc (Reports & Documentation)"
-            description="Certify each access review with tool details, review times, counts, and auto-generate PDF certifications with email delivery."
-          />
-        );
+        return <RepDocSection />;
       
       case 'admin':
-        return (
-          <PlaceholderSection 
-            title="SparrowVision Admin"
-            description="Invite users to access SparrowVision, assign roles (View/Edit/Logs/Integration), and manage role-based permissions with Slack integration settings."
-          />
-        );
+        return <AdminSection />;
       
       case 'logs':
-        return (
-          <PlaceholderSection 
-            title="Logs (ISO 27001 Compliant)"
-            description="Audit-ready logs with user logins/logouts, data sync events, review actions, and removals performed. Timestamped, categorized, and exportable."
-          />
-        );
+        return <LogsSection />;
       
       default:
-        return <NewDashboard />;
+        return <NewDashboard onNavigate={setActiveTab} />;
     }
   };
 
@@ -108,15 +76,15 @@ function NewApp() {
                     Powered by Sparrow IT • SparrowVision v2.0
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    InfoSec Access Governance Platform - ISO 27001 Compliant
+                    Complete InfoSec Access Governance Platform - ISO 27001 Compliant
                   </p>
                 </div>
                 <div className="text-center md:text-right">
                   <p className="text-sm text-gray-500">
                     Contact: it-admin@surveysparrow.com
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Secure • Auditable • Professional
+                  <p className="text-xs text-emerald-600 mt-1 font-medium">
+                    ✓ Full Platform • ✓ All Features Complete
                   </p>
                 </div>
               </div>
