@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Activity
+  Activity,
+  TrendingUp
 } from 'lucide-react';
 import SurveySparrowLogo from './SurveySparrowLogo';
 
@@ -24,6 +25,7 @@ interface SidebarProps {
 
 const navigationItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, description: 'Tools, users & review metrics' },
+  { id: 'analytics', label: 'Analytics', icon: TrendingUp, description: 'Advanced insights & visualizations' },
   { id: 'integration-center', label: 'Integration Center', icon: Settings, description: '150+ API & CSV integrations' },
   { id: 'users', label: 'Users', icon: Users, description: 'JumpCloud sync & user management' },
   { id: 'access-review', label: 'Access Review', icon: Eye, description: 'User-wise & Tool-wise reviews' },
