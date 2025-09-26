@@ -1,56 +1,138 @@
 import express from 'express';
-import { query } from '../config/database.js';
-import { authenticateToken, requirePermission } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
+import { getPrismaClient } from '../utils/database.js';
+import nodemailer from 'nodemailer';
 
 const router = express.Router();
+const prisma = getPrismaClient();
 
-// Get all dynamic reports for a user
-router.get('/', authenticateToken, requirePermission('reports:read'), async (req, res) => {
+// Email configuration
+const emailTransporter = nodemailer.createTransporter({
+  host: process.env.SMTP_HOST || 'localhost',
+  port: process.env.SMTP_PORT || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || ''
+  }
+});
+
+// Team email mappings
+const TEAM_EMAILS = {
+  'IT Security Team': process.env.IT_SECURITY_EMAILS?.split(',') || ['it-security@company.com'],
+  'HR Team': process.env.HR_TEAM_EMAILS?.split(',') || ['hr@company.com'],
+  'Engineering Team': process.env.ENGINEERING_EMAILS?.split(',') || ['engineering@company.com'],
+  'Marketing Team': process.env.MARKETING_EMAILS?.split(',') || ['marketing@company.com'],
+  'Finance Team': process.env.FINANCE_EMAILS?.split(',') || ['finance@company.com'],
+  'Compliance': process.env.COMPLIANCE_EMAILS?.split(',') || ['compliance@company.com']
+};
+
+// Email templates
+const EMAIL_TEMPLATES = {
+  'Access Review Summary': {
+    subject: 'Access Review Report - {title}',
+    body: `Dear Team,
+
+Please find the attached access review report for your review.
+
+Summary:
+- Review Period: {period}
+- Total Users Reviewed: {usersReviewed}
+- Access Items Reviewed: {itemsReviewed}
+- Access Removed: {accessRemoved}
+- High Risk Users: {highRiskUsers}
+
+{customMessage}
+
+Please review the attached report and take necessary actions for your team members.
+
+Best regards,
+SparrowVision Access Governance Team`
+  },
+  'Exit Employee Report': {
+    subject: 'Exit Employee Access Review - Action Required',
+    body: `Dear Team,
+
+This report contains access review information for recently departed employees.
+
+URGENT: The following users have left the organization but may still have active access:
+{exitUsersList}
+
+Please review and ensure all access has been properly removed.
+
+{customMessage}
+
+Best regards,
+SparrowVision Access Governance Team`
+  },
+  'New Access Granted': {
+    subject: 'New Access Permissions Granted - {period}',
+    body: `Dear Team,
+
+This report shows new access permissions granted during {period}.
+
+Summary:
+- New Users Added: {newUsers}
+- New Permissions Granted: {newPermissions}
+
+{customMessage}
+
+Please review to ensure all access grants are appropriate.
+
+Best regards,
+SparrowVision Access Governance Team`
+  },
+  'Compliance Alert': {
+    subject: 'Compliance Alert - Immediate Action Required',
+    body: `Dear Team,
+
+This is a compliance alert regarding access governance findings that require immediate attention.
+
+{complianceIssues}
+
+{customMessage}
+
+Please address these issues within 48 hours.
+
+Best regards,
+SparrowVision Access Governance Team`
+  }
+};
+
+// Get all reports
+router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20, type, status } = req.query;
+    const { 
+      page = 1, 
+      limit = 20, 
+      status, 
+      type,
+      search 
+    } = req.query;
+    
     const offset = (page - 1) * limit;
+    
+    const whereClause = {
+      ...(status && status !== 'ALL' && { status }),
+      ...(type && type !== 'ALL' && { type }),
+      ...(search && {
+        title: { contains: search, mode: 'insensitive' }
+      })
+    };
 
-    let whereClause = 'WHERE created_by = $1';
-    const params = [req.user.id];
-    let paramCount = 1;
-
-    if (type && type !== 'all') {
-      paramCount++;
-      whereClause += ` AND type = $${paramCount}`;
-      params.push(type);
-    }
-
-    if (status && status !== 'all') {
-      paramCount++;
-      whereClause += ` AND status = $${paramCount}`;
-      params.push(status);
-    }
-
-    // Get total count
-    const countResult = await query(`
-      SELECT COUNT(*) as count 
-      FROM dynamic_reports 
-      ${whereClause}
-    `, params);
-
-    const totalCount = parseInt(countResult.rows[0].count);
-
-    // Get reports with pagination
-    const reportsResult = await query(`
-      SELECT 
-        dr.*,
-        u.first_name,
-        u.last_name,
-        u.email as creator_email
-      FROM dynamic_reports dr
-      LEFT JOIN users u ON dr.created_by = u.id
-      ${whereClause}
-      ORDER BY dr.created_at DESC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `, [...params, limit, offset]);
+    const [reports, totalCount] = await Promise.all([
+      prisma.report.findMany({
+        where: whereClause,
+        orderBy: { generatedAt: 'desc' },
+        skip: offset,
+        take: parseInt(limit)
+      }),
+      prisma.report.count({ where: whereClause })
+    ]);
 
     res.json({
-      reports: reportsResult.rows,
+      success: true,
+      data: reports,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -58,564 +140,537 @@ router.get('/', authenticateToken, requirePermission('reports:read'), async (req
         pages: Math.ceil(totalCount / limit)
       }
     });
-
   } catch (error) {
-    console.error('Get reports error:', error);
+    logger.error('Error fetching reports:', error);
     res.status(500).json({
-      error: 'Failed to fetch reports',
-      message: 'An error occurred while fetching reports'
+      success: false,
+      error: 'Failed to fetch reports'
     });
   }
 });
 
-// Create a new dynamic report
-router.post('/', authenticateToken, requirePermission('reports:create'), async (req, res) => {
+// Generate new report
+router.post('/generate', async (req, res) => {
   try {
     const {
-      name,
-      description,
+      title,
       type,
-      template,
-      filters,
-      columns,
-      charts,
-      schedule
+      toolFilter,
+      selectedTools,
+      reviewId,
+      customParams
     } = req.body;
 
-    if (!name || !type) {
+    if (!title || !type) {
       return res.status(400).json({
-        error: 'Missing required fields',
-        message: 'Name and type are required'
+        success: false,
+        error: 'Title and type are required'
       });
     }
 
-    const result = await query(`
-      INSERT INTO dynamic_reports (
-        name, description, type, template, filters, columns, charts, schedule,
-        created_by, created_at, status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'active')
-      RETURNING *
-    `, [
-      name,
-      description,
-      type,
-      JSON.stringify(template),
-      JSON.stringify(filters),
-      JSON.stringify(columns),
-      JSON.stringify(charts),
-      JSON.stringify(schedule),
-      req.user.id
-    ]);
+    // Get tools to include in report
+    let toolsToReview = [];
+    if (toolFilter === 'ALL') {
+      const allTools = await prisma.tool.findMany({
+        select: { name: true }
+      });
+      toolsToReview = allTools.map(t => t.name);
+    } else if (toolFilter === 'SELECTED' && selectedTools) {
+      toolsToReview = selectedTools;
+    }
 
-    const newReport = result.rows[0];
-    
-    // Parse JSON fields for response
-    newReport.template = JSON.parse(newReport.template || '{}');
-    newReport.filters = JSON.parse(newReport.filters || '[]');
-    newReport.columns = JSON.parse(newReport.columns || '[]');
-    newReport.charts = JSON.parse(newReport.charts || '[]');
-    newReport.schedule = JSON.parse(newReport.schedule || '{}');
+    // Get data based on report type
+    let reportData = {};
+    let usersReviewed = 0;
+    let removals = 0;
+    let flags = 0;
 
-    res.status(201).json(newReport);
+    if (type === 'ACCESS_REVIEW' && reviewId) {
+      const review = await prisma.accessReview.findUnique({
+        where: { id: reviewId },
+        include: { entries: true }
+      });
 
+      if (review) {
+        usersReviewed = review.entries.length;
+        removals = review.entries.filter(e => e.status === 'REMOVED').length;
+        flags = review.entries.filter(e => e.shouldRemove).length;
+        
+        reportData = {
+          reviewTitle: review.title,
+          reviewType: review.type,
+          totalEntries: review.entries.length,
+          entriesByStatus: {
+            approved: review.entries.filter(e => e.status === 'APPROVED').length,
+            flagged: review.entries.filter(e => e.status === 'FLAGGED').length,
+            removed: review.entries.filter(e => e.status === 'REMOVED').length
+          },
+          exitUsers: review.entries.filter(e => e.userName).map(e => ({
+            email: e.userEmail,
+            name: e.userName,
+            tool: e.toolName,
+            shouldRemove: e.shouldRemove
+          }))
+        };
+      }
+    } else if (type === 'COMPLIANCE') {
+      // Get compliance data
+      const exitUsersWithAccess = await prisma.user.count({
+        where: {
+          status: 'EXIT',
+          userAccess: {
+            some: { status: 'ACTIVE' }
+          }
+        }
+      });
+
+      const highRiskUsers = await prisma.user.count({
+        where: {
+          status: 'ACTIVE',
+          riskScore: { gte: 70 }
+        }
+      });
+
+      reportData = {
+        exitUsersWithAccess,
+        highRiskUsers,
+        totalActiveUsers: await prisma.user.count({ where: { status: 'ACTIVE' } }),
+        complianceScore: Math.max(0, 100 - (exitUsersWithAccess * 10) - (highRiskUsers * 5))
+      };
+    }
+
+    // Create report record
+    const report = await prisma.report.create({
+      data: {
+        title,
+        type,
+        reviewId,
+        status: 'GENERATED',
+        generatedAt: new Date(),
+        generatedBy: req.user?.id || 'system',
+        toolsReviewed: toolsToReview,
+        usersReviewed,
+        removals,
+        flags,
+        data: JSON.stringify(reportData)
+      }
+    });
+
+    // Log report generation
+    await prisma.log.create({
+      data: {
+        action: 'REPORT_GENERATED',
+        entityType: 'REPORT',
+        entityId: report.id,
+        userId: req.user?.id || 'system',
+        details: JSON.stringify({
+          title,
+          type,
+          toolsCount: toolsToReview.length,
+          usersReviewed
+        })
+      }
+    });
+
+    logger.info(`Report generated: ${title}`);
+
+    res.status(201).json({
+      success: true,
+      data: report,
+      message: 'Report generated successfully'
+    });
   } catch (error) {
-    console.error('Create report error:', error);
+    logger.error('Error generating report:', error);
     res.status(500).json({
-      error: 'Failed to create report',
-      message: 'An error occurred while creating the report'
+      success: false,
+      error: 'Failed to generate report'
     });
   }
 });
 
-// Get a specific report
-router.get('/:id', authenticateToken, requirePermission('reports:read'), async (req, res) => {
+// Send automated team notification
+router.post('/notify-team', async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const result = await query(`
-      SELECT 
-        dr.*,
-        u.first_name,
-        u.last_name,
-        u.email as creator_email
-      FROM dynamic_reports dr
-      LEFT JOIN users u ON dr.created_by = u.id
-      WHERE dr.id = $1 AND (dr.created_by = $2 OR $3)
-    `, [id, req.user.id, req.user.permissions.includes('reports:read_all')]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Report not found',
-        message: 'The requested report could not be found'
-      });
-    }
-
-    const report = result.rows[0];
-    
-    // Parse JSON fields
-    report.template = JSON.parse(report.template || '{}');
-    report.filters = JSON.parse(report.filters || '[]');
-    report.columns = JSON.parse(report.columns || '[]');
-    report.charts = JSON.parse(report.charts || '[]');
-    report.schedule = JSON.parse(report.schedule || '{}');
-
-    res.json(report);
-
-  } catch (error) {
-    console.error('Get report error:', error);
-    res.status(500).json({
-      error: 'Failed to fetch report',
-      message: 'An error occurred while fetching the report'
-    });
-  }
-});
-
-// Update a report
-router.put('/:id', authenticateToken, requirePermission('reports:update'), async (req, res) => {
-  try {
-    const { id } = req.params;
     const {
-      name,
-      description,
-      type,
+      team,
       template,
-      filters,
-      columns,
-      charts,
-      schedule,
-      status
+      reportId,
+      customSubject,
+      customMessage,
+      scheduleFor
     } = req.body;
 
-    // Check if user owns the report or has admin permissions
-    const checkResult = await query(`
-      SELECT * FROM dynamic_reports 
-      WHERE id = $1 AND (created_by = $2 OR $3)
-    `, [id, req.user.id, req.user.permissions.includes('reports:update_all')]);
-
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Report not found',
-        message: 'The requested report could not be found or you do not have permission to update it'
+    if (!team || !template) {
+      return res.status(400).json({
+        success: false,
+        error: 'Team and template are required'
       });
     }
 
-    const result = await query(`
-      UPDATE dynamic_reports 
-      SET 
-        name = COALESCE($2, name),
-        description = COALESCE($3, description),
-        type = COALESCE($4, type),
-        template = COALESCE($5, template),
-        filters = COALESCE($6, filters),
-        columns = COALESCE($7, columns),
-        charts = COALESCE($8, charts),
-        schedule = COALESCE($9, schedule),
-        status = COALESCE($10, status),
-        updated_at = NOW()
-      WHERE id = $1
-      RETURNING *
-    `, [
-      id,
-      name,
-      description,
-      type,
-      template ? JSON.stringify(template) : null,
-      filters ? JSON.stringify(filters) : null,
-      columns ? JSON.stringify(columns) : null,
-      charts ? JSON.stringify(charts) : null,
-      schedule ? JSON.stringify(schedule) : null,
-      status
-    ]);
-
-    const updatedReport = result.rows[0];
-    
-    // Parse JSON fields for response
-    updatedReport.template = JSON.parse(updatedReport.template || '{}');
-    updatedReport.filters = JSON.parse(updatedReport.filters || '[]');
-    updatedReport.columns = JSON.parse(updatedReport.columns || '[]');
-    updatedReport.charts = JSON.parse(updatedReport.charts || '[]');
-    updatedReport.schedule = JSON.parse(updatedReport.schedule || '{}');
-
-    res.json(updatedReport);
-
-  } catch (error) {
-    console.error('Update report error:', error);
-    res.status(500).json({
-      error: 'Failed to update report',
-      message: 'An error occurred while updating the report'
-    });
-  }
-});
-
-// Delete a report
-router.delete('/:id', authenticateToken, requirePermission('reports:delete'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Check if user owns the report or has admin permissions
-    const checkResult = await query(`
-      SELECT * FROM dynamic_reports 
-      WHERE id = $1 AND (created_by = $2 OR $3)
-    `, [id, req.user.id, req.user.permissions.includes('reports:delete_all')]);
-
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Report not found',
-        message: 'The requested report could not be found or you do not have permission to delete it'
+    // Get team email addresses
+    const teamEmails = TEAM_EMAILS[team];
+    if (!teamEmails) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid team specified'
       });
     }
 
-    // Delete associated report results first
-    await query('DELETE FROM report_results WHERE report_id = $1', [id]);
-
-    // Delete the report
-    await query('DELETE FROM dynamic_reports WHERE id = $1', [id]);
-
-    res.json({
-      message: 'Report deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Delete report error:', error);
-    res.status(500).json({
-      error: 'Failed to delete report',
-      message: 'An error occurred while deleting the report'
-    });
-  }
-});
-
-// Generate report data
-router.post('/:id/generate', authenticateToken, requirePermission('reports:generate'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { dateRange } = req.body;
-
-    // Get the report configuration
-    const reportResult = await query(`
-      SELECT * FROM dynamic_reports 
-      WHERE id = $1 AND (created_by = $2 OR $3) AND status = 'active'
-    `, [id, req.user.id, req.user.permissions.includes('reports:generate_all')]);
-
-    if (reportResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Report not found',
-        message: 'The requested report could not be found or is inactive'
+    // Get email template
+    const emailTemplate = EMAIL_TEMPLATES[template];
+    if (!emailTemplate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid template specified'
       });
     }
 
-    const report = reportResult.rows[0];
-    
-    // Parse JSON fields
-    const filters = JSON.parse(report.filters || '[]');
-    const columns = JSON.parse(report.columns || '[]');
-
-    // Generate the actual report data based on type
-    let data = [];
-    let insights = [];
-    let recommendations = [];
-
-    switch (report.type) {
-      case 'user_access':
-        data = await generateUserAccessReport(filters, dateRange);
-        insights = generateUserAccessInsights(data);
-        break;
-      case 'audit':
-        data = await generateAuditReport(filters, dateRange);
-        insights = generateAuditInsights(data);
-        break;
-      case 'compliance':
-        data = await generateComplianceReport(filters, dateRange);
-        insights = generateComplianceInsights(data);
-        break;
-      case 'activity':
-        data = await generateActivityReport(filters, dateRange);
-        insights = generateActivityInsights(data);
-        break;
-      default:
-        data = await generateCustomReport(report, dateRange);
-        insights = ['Custom report generated successfully'];
+    // Get report data if reportId provided
+    let report = null;
+    let reportData = {};
+    if (reportId) {
+      report = await prisma.report.findUnique({
+        where: { id: reportId }
+      });
+      
+      if (report) {
+        reportData = JSON.parse(report.data || '{}');
+      }
     }
 
-    // Create report result record
-    const resultId = `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const reportResultData = {
-      id: resultId,
-      reportId: id,
-      data: data.slice(0, 1000), // Limit data size
-      summary: {
-        totalRecords: data.length,
-        dateRange: dateRange || { start: '', end: '' },
-        generatedAt: new Date().toISOString(),
-        filters: filters
-      },
-      insights,
-      recommendations: generateRecommendations(data, report.type)
+    // Prepare email content
+    let subject = customSubject || emailTemplate.subject;
+    let body = emailTemplate.body;
+
+    // Replace placeholders
+    const replacements = {
+      '{title}': report?.title || 'Access Review Report',
+      '{period}': new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      '{usersReviewed}': report?.usersReviewed || 0,
+      '{itemsReviewed}': reportData.totalEntries || 0,
+      '{accessRemoved}': report?.removals || 0,
+      '{highRiskUsers}': reportData.highRiskUsers || 0,
+      '{customMessage}': customMessage || '',
+      '{exitUsersList}': reportData.exitUsers?.map(u => `- ${u.name} (${u.email})`).join('\n') || '',
+      '{newUsers}': reportData.newUsers || 0,
+      '{newPermissions}': reportData.newPermissions || 0,
+      '{complianceIssues}': reportData.complianceIssues || 'See attached report for details.'
     };
 
-    // Store the result
-    await query(`
-      INSERT INTO report_results (id, report_id, data, summary, insights, recommendations, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
-    `, [
-      resultId,
-      id,
-      JSON.stringify(reportResultData.data),
-      JSON.stringify(reportResultData.summary),
-      JSON.stringify(insights),
-      JSON.stringify(reportResultData.recommendations)
-    ]);
+    Object.entries(replacements).forEach(([placeholder, value]) => {
+      subject = subject.replace(placeholder, value.toString());
+      body = body.replace(placeholder, value.toString());
+    });
 
-    // Update report last_generated timestamp
-    await query(`
-      UPDATE dynamic_reports 
-      SET last_generated = NOW() 
-      WHERE id = $1
-    `, [id]);
+    // Schedule or send immediately
+    if (scheduleFor && new Date(scheduleFor) > new Date()) {
+      // For now, just log the scheduled notification
+      // In production, you'd use a job queue like Bull or Agenda
+      logger.info(`Notification scheduled for ${scheduleFor}`, {
+        team,
+        template,
+        subject
+      });
 
-    res.json(reportResultData);
+      res.json({
+        success: true,
+        message: `Notification scheduled for ${new Date(scheduleFor).toLocaleString()}`,
+        data: { scheduledFor: scheduleFor }
+      });
+    } else {
+      // Send immediately
+      try {
+        await emailTransporter.sendMail({
+          from: process.env.FROM_EMAIL || 'noreply@sparrowvision.com',
+          to: teamEmails.join(','),
+          subject,
+          text: body,
+          attachments: report ? [{
+            filename: `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+            content: Buffer.from('Mock PDF content'), // In production, generate actual PDF
+            contentType: 'application/pdf'
+          }] : []
+        });
 
+        // Log notification
+        await prisma.log.create({
+          data: {
+            action: 'TEAM_NOTIFICATION_SENT',
+            entityType: 'REPORT',
+            entityId: reportId || null,
+            userId: req.user?.id || 'system',
+            details: JSON.stringify({
+              team,
+              template,
+              recipientCount: teamEmails.length,
+              subject
+            })
+          }
+        });
+
+        logger.info(`Team notification sent to ${team}`, {
+          template,
+          recipientCount: teamEmails.length
+        });
+
+        res.json({
+          success: true,
+          message: `Notification sent to ${team} (${teamEmails.length} recipients)`,
+          data: { sentTo: teamEmails.length }
+        });
+      } catch (emailError) {
+        logger.error('Error sending team notification:', emailError);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to send team notification'
+        });
+      }
+    }
   } catch (error) {
-    console.error('Generate report error:', error);
+    logger.error('Error processing team notification:', error);
     res.status(500).json({
-      error: 'Failed to generate report',
-      message: 'An error occurred while generating the report'
+      success: false,
+      error: 'Failed to process team notification'
     });
   }
 });
 
-// Get report results
-router.get('/:id/results', authenticateToken, requirePermission('reports:read'), async (req, res) => {
+// Send custom team notification
+router.post('/notify-custom', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
+    const {
+      teams,
+      subject,
+      message,
+      reportId,
+      attachReport = false
+    } = req.body;
 
-    // Verify user has access to the report
-    const reportCheck = await query(`
-      SELECT id FROM dynamic_reports 
-      WHERE id = $1 AND (created_by = $2 OR $3)
-    `, [id, req.user.id, req.user.permissions.includes('reports:read_all')]);
-
-    if (reportCheck.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Report not found',
-        message: 'The requested report could not be found'
+    if (!teams || !Array.isArray(teams) || teams.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'At least one team must be specified'
       });
     }
 
-    const results = await query(`
-      SELECT id, summary, insights, recommendations, created_at
-      FROM report_results 
-      WHERE report_id = $1 
-      ORDER BY created_at DESC
-      LIMIT $2 OFFSET $3
-    `, [id, limit, offset]);
+    if (!subject || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subject and message are required'
+      });
+    }
 
-    const parsedResults = results.rows.map(row => ({
-      ...row,
-      summary: JSON.parse(row.summary || '{}'),
-      insights: JSON.parse(row.insights || '[]'),
-      recommendations: JSON.parse(row.recommendations || '[]')
-    }));
+    // Collect all recipient emails
+    const allRecipients = [];
+    teams.forEach(team => {
+      if (TEAM_EMAILS[team]) {
+        allRecipients.push(...TEAM_EMAILS[team]);
+      }
+    });
 
-    res.json(parsedResults);
+    if (allRecipients.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid teams specified'
+      });
+    }
 
+    // Get report if needed
+    let report = null;
+    if (reportId && attachReport) {
+      report = await prisma.report.findUnique({
+        where: { id: reportId }
+      });
+    }
+
+    // Send email
+    try {
+      await emailTransporter.sendMail({
+        from: process.env.FROM_EMAIL || 'noreply@sparrowvision.com',
+        to: [...new Set(allRecipients)].join(','), // Remove duplicates
+        subject,
+        text: message,
+        attachments: report && attachReport ? [{
+          filename: `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+          content: Buffer.from('Mock PDF content'), // In production, generate actual PDF
+          contentType: 'application/pdf'
+        }] : []
+      });
+
+      // Log notification
+      await prisma.log.create({
+        data: {
+          action: 'CUSTOM_TEAM_NOTIFICATION_SENT',
+          entityType: 'REPORT',
+          entityId: reportId || null,
+          userId: req.user?.id || 'system',
+          details: JSON.stringify({
+            teams,
+            recipientCount: [...new Set(allRecipients)].length,
+            subject,
+            hasAttachment: attachReport && report
+          })
+        }
+      });
+
+      logger.info('Custom team notification sent', {
+        teams,
+        recipientCount: [...new Set(allRecipients)].length
+      });
+
+      res.json({
+        success: true,
+        message: `Custom notification sent to ${teams.join(', ')} (${[...new Set(allRecipients)].length} recipients)`,
+        data: { 
+          sentTo: [...new Set(allRecipients)].length,
+          teams 
+        }
+      });
+    } catch (emailError) {
+      logger.error('Error sending custom team notification:', emailError);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send custom team notification'
+      });
+    }
   } catch (error) {
-    console.error('Get report results error:', error);
+    logger.error('Error processing custom team notification:', error);
     res.status(500).json({
-      error: 'Failed to fetch report results',
-      message: 'An error occurred while fetching report results'
+      success: false,
+      error: 'Failed to process custom team notification'
     });
   }
 });
 
-// Helper functions for generating different types of reports
-async function generateUserAccessReport(filters, dateRange) {
-  // Get users with their roles and permissions
-  let whereClause = 'WHERE u.is_active = true';
-  const params = [];
+// Certify report
+router.patch('/:id/certify', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { framework = 'ISO 27001' } = req.body;
 
-  // Apply filters
-  filters.forEach((filter, index) => {
-    if (filter.field === 'status' && filter.value === 'ACTIVE') {
-      // Already handled by is_active = true
-      return;
+    const report = await prisma.report.findUnique({
+      where: { id }
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        error: 'Report not found'
+      });
     }
-    // Add more filter logic as needed
-  });
 
-  const result = await query(`
-    SELECT 
-      u.id,
-      u.email,
-      u.first_name,
-      u.last_name,
-      u.department,
-      u.manager,
-      u.last_login,
-      u.created_at as join_date,
-      r.name as role,
-      array_agg(DISTINCT p.name) as permissions,
-      'SYSTEM' as tool,
-      CASE WHEN u.is_active THEN 'ACTIVE' ELSE 'INACTIVE' END as status
-    FROM users u
-    LEFT JOIN user_roles ur ON u.id = ur.user_id
-    LEFT JOIN roles r ON ur.role_id = r.id
-    LEFT JOIN role_permissions rp ON r.id = rp.role_id
-    LEFT JOIN permissions p ON rp.permission_id = p.id
-    ${whereClause}
-    GROUP BY u.id, u.email, u.first_name, u.last_name, u.department, u.manager, u.last_login, u.created_at, r.name, u.is_active
-  `, params);
+    // Update report status
+    const updatedReport = await prisma.report.update({
+      where: { id },
+      data: {
+        status: 'CERTIFIED',
+        certifiedAt: new Date(),
+        certifiedBy: req.user?.id || 'system',
+        complianceFramework: framework
+      }
+    });
 
-  return result.rows;
-}
+    // Create certification record
+    const certification = await prisma.certification.create({
+      data: {
+        reportId: id,
+        framework,
+        certifiedBy: req.user?.id || 'system',
+        certifiedAt: new Date(),
+        validUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+        certificateNumber: `SS-${framework.replace(/\s+/g, '')}-${new Date().getFullYear()}-${Date.now()}`,
+        status: 'VALID'
+      }
+    });
 
-async function generateAuditReport(filters, dateRange) {
-  let whereClause = 'WHERE 1=1';
-  const params = [];
-  let paramCount = 0;
+    // Log certification
+    await prisma.log.create({
+      data: {
+        action: 'REPORT_CERTIFIED',
+        entityType: 'REPORT',
+        entityId: id,
+        userId: req.user?.id || 'system',
+        details: JSON.stringify({
+          framework,
+          certificateNumber: certification.certificateNumber
+        })
+      }
+    });
 
-  if (dateRange) {
-    if (dateRange.start) {
-      paramCount++;
-      whereClause += ` AND al.created_at >= $${paramCount}`;
-      params.push(dateRange.start);
+    logger.info(`Report certified: ${report.title} for ${framework}`);
+
+    res.json({
+      success: true,
+      data: {
+        report: updatedReport,
+        certification
+      },
+      message: 'Report certified successfully'
+    });
+  } catch (error) {
+    logger.error('Error certifying report:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to certify report'
+    });
+  }
+});
+
+// Download report
+router.get('/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { format = 'pdf' } = req.query;
+
+    const report = await prisma.report.findUnique({
+      where: { id }
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        error: 'Report not found'
+      });
     }
-    if (dateRange.end) {
-      paramCount++;
-      whereClause += ` AND al.created_at <= $${paramCount}`;
-      params.push(dateRange.end);
+
+    // In production, generate actual PDF/Excel files
+    const mockContent = JSON.stringify({
+      title: report.title,
+      type: report.type,
+      generatedAt: report.generatedAt,
+      data: JSON.parse(report.data || '{}')
+    }, null, 2);
+
+    if (format === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf"`);
+      res.send(Buffer.from(mockContent)); // In production, generate actual PDF
+    } else {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.json"`);
+      res.send(mockContent);
     }
+
+    // Log download
+    await prisma.log.create({
+      data: {
+        action: 'REPORT_DOWNLOADED',
+        entityType: 'REPORT',
+        entityId: id,
+        userId: req.user?.id || 'system',
+        details: JSON.stringify({
+          format,
+          reportTitle: report.title
+        })
+      }
+    });
+  } catch (error) {
+    logger.error('Error downloading report:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to download report'
+    });
   }
-
-  const result = await query(`
-    SELECT 
-      al.*,
-      u.email as userEmail
-    FROM audit_logs al
-    LEFT JOIN users u ON al.user_id = u.id
-    ${whereClause}
-    ORDER BY al.created_at DESC
-    LIMIT 1000
-  `, params);
-
-  return result.rows;
-}
-
-async function generateComplianceReport(filters, dateRange) {
-  // For demo purposes, return mock compliance data
-  return [
-    {
-      complianceType: 'SOX',
-      findings: 5,
-      violations: 2,
-      resolved: 3,
-      status: 'IN_PROGRESS'
-    },
-    {
-      complianceType: 'GDPR',
-      findings: 3,
-      violations: 1,
-      resolved: 2,
-      status: 'COMPLETED'
-    }
-  ];
-}
-
-async function generateActivityReport(filters, dateRange) {
-  let whereClause = 'WHERE 1=1';
-  const params = [];
-  let paramCount = 0;
-
-  if (dateRange) {
-    if (dateRange.start) {
-      paramCount++;
-      whereClause += ` AND al.created_at >= $${paramCount}`;
-      params.push(dateRange.start);
-    }
-  }
-
-  const result = await query(`
-    SELECT 
-      u.id as userId,
-      u.email as userEmail,
-      COUNT(CASE WHEN al.action = 'LOGIN' THEN 1 END) as loginCount,
-      COUNT(*) as actionsCount,
-      MAX(al.created_at) as lastActivity,
-      AVG(CASE WHEN al.severity = 'HIGH' THEN 8 WHEN al.severity = 'MEDIUM' THEN 5 ELSE 2 END) as riskScore
-    FROM users u
-    LEFT JOIN audit_logs al ON u.id = al.user_id
-    ${whereClause}
-    GROUP BY u.id, u.email
-    HAVING COUNT(al.id) > 0
-  `, params);
-
-  return result.rows;
-}
-
-async function generateCustomReport(report, dateRange) {
-  // For custom reports, return a basic dataset
-  return [];
-}
-
-function generateUserAccessInsights(data) {
-  const insights = [];
-  if (data.length > 0) {
-    const adminUsers = data.filter(user => user.role === 'Admin');
-    insights.push(`${adminUsers.length} users have admin privileges`);
-    
-    const inactiveUsers = data.filter(user => 
-      !user.last_login || new Date(user.last_login) < new Date(Date.now() - 90*24*60*60*1000)
-    );
-    if (inactiveUsers.length > 0) {
-      insights.push(`${inactiveUsers.length} users haven't logged in for 90+ days`);
-    }
-  }
-  return insights;
-}
-
-function generateAuditInsights(data) {
-  const insights = [];
-  if (data.length > 0) {
-    const failedEvents = data.filter(event => event.outcome === 'FAILURE');
-    insights.push(`${failedEvents.length} failed events detected`);
-    
-    const highRiskEvents = data.filter(event => event.severity === 'HIGH' || event.severity === 'CRITICAL');
-    insights.push(`${highRiskEvents.length} high-risk events identified`);
-  }
-  return insights;
-}
-
-function generateComplianceInsights(data) {
-  return ['Compliance report generated successfully'];
-}
-
-function generateActivityInsights(data) {
-  const insights = [];
-  if (data.length > 0) {
-    const avgRiskScore = data.reduce((sum, user) => sum + (user.riskScore || 0), 0) / data.length;
-    insights.push(`Average user risk score: ${avgRiskScore.toFixed(2)}`);
-  }
-  return insights;
-}
-
-function generateRecommendations(data, reportType) {
-  const recommendations = [];
-  switch (reportType) {
-    case 'user_access':
-      recommendations.push('Review inactive user accounts monthly');
-      recommendations.push('Implement principle of least privilege');
-      break;
-    case 'audit':
-      recommendations.push('Investigate high-risk events promptly');
-      recommendations.push('Implement automated alerting for failed logins');
-      break;
-    default:
-      recommendations.push('Regular monitoring recommended');
-  }
-  return recommendations;
-}
+});
 
 export default router;

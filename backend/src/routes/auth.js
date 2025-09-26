@@ -1,334 +1,581 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { query } from '../config/database.js';
-import { authenticateToken } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
+import { getPrismaClient } from '../utils/database.js';
 
 const router = express.Router();
+const prisma = getPrismaClient();
 
-// Login endpoint
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+// Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe = false } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
-        error: 'Missing credentials',
-        message: 'Email and password are required'
+        success: false,
+        error: 'Email and password are required'
       });
     }
 
     // Find user by email
-    const userResult = await query(
-      `SELECT u.*, r.name as role_name, r.permissions 
-       FROM users u 
-       LEFT JOIN roles r ON u.role_id = r.id 
-       WHERE u.email = $1 AND u.is_active = true`,
-      [email]
-    );
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
 
-    if (userResult.rows.length === 0) {
+    if (!user || user.status !== 'ACTIVE') {
+      // Log failed login attempt
+      await prisma.log.create({
+        data: {
+          action: 'USER_LOGIN_FAILED',
+          entityType: 'USER',
+          userId: 'anonymous',
+          details: JSON.stringify({
+            email,
+            reason: user ? 'Account inactive' : 'User not found'
+          }),
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          severity: 'WARNING'
+        }
+      });
+
       return res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Email or password is incorrect'
+        success: false,
+        error: 'Invalid email or password'
       });
     }
 
-    const user = userResult.rows[0];
+    // Check password
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
+      // Log failed login attempt
+      await prisma.log.create({
+        data: {
+          action: 'USER_LOGIN_FAILED',
+          entityType: 'USER',
+          entityId: user.id,
+          userId: user.id,
+          details: JSON.stringify({
+            email,
+            reason: 'Invalid password'
+          }),
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          severity: 'WARNING'
+        }
+      });
+
       return res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Email or password is incorrect'
+        success: false,
+        error: 'Invalid email or password'
       });
     }
-
-    // Update last login
-    await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [user.id]
-    );
 
     // Generate JWT token
+    const tokenExpiry = rememberMe ? '30d' : JWT_EXPIRES_IN;
     const token = jwt.sign(
       {
-        userId: user.id,
+        id: user.id,
         email: user.email,
-        role: user.role_name,
-        permissions: user.permissions
+        role: user.role
       },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      JWT_SECRET,
+      { expiresIn: tokenExpiry }
     );
 
-    // Log the login event
-    await query(
-      `INSERT INTO audit_logs (user_id, action, resource, details, ip_address, user_agent)
-       VALUES ($1, 'login', 'auth', $2, $3, $4)`,
-      [
-        user.id,
-        JSON.stringify({ email: user.email }),
-        req.ip,
-        req.get('User-Agent')
-      ]
-    );
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        role: user.role_name,
-        permissions: user.permissions,
-        lastLogin: user.last_login
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        lastLogin: new Date(),
+        loginCount: { increment: 1 }
       }
     });
 
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      error: 'Login failed',
-      message: 'An error occurred during login'
-    });
-  }
-});
-
-// Register endpoint
-router.post('/register', async (req, res) => {
-  try {
-    const { email, password, firstName, lastName, roleId } = req.body;
-
-    if (!email || !password || !firstName || !lastName) {
-      return res.status(400).json({
-        error: 'Missing required fields',
-        message: 'Email, password, first name, and last name are required'
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({
-        error: 'User already exists',
-        message: 'A user with this email already exists'
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
-    const userResult = await query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, role_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, email, first_name, last_name, created_at`,
-      [email, hashedPassword, firstName, lastName, roleId]
-    );
-
-    const newUser = userResult.rows[0];
-
-    // Log the registration event
-    await query(
-      `INSERT INTO audit_logs (user_id, action, resource, details, ip_address, user_agent)
-       VALUES ($1, 'register', 'user', $2, $3, $4)`,
-      [
-        newUser.id,
-        JSON.stringify({ email: newUser.email }),
-        req.ip,
-        req.get('User-Agent')
-      ]
-    );
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-        firstName: newUser.first_name,
-        lastName: newUser.last_name,
-        createdAt: newUser.created_at
-      }
-    });
-
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({
-      error: 'Registration failed',
-      message: 'An error occurred during registration'
-    });
-  }
-});
-
-// Get current user profile
-router.get('/profile', authenticateToken, async (req, res) => {
-  try {
-    const userResult = await query(
-      `SELECT u.*, r.name as role_name, r.permissions 
-       FROM users u 
-       LEFT JOIN roles r ON u.role_id = r.id 
-       WHERE u.id = $1`,
-      [req.user.userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'User profile not found'
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        role: user.role_name,
-        permissions: user.permissions,
-        isActive: user.is_active,
-        lastLogin: user.last_login,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
-      }
-    });
-
-  } catch (error) {
-    console.error('Profile fetch error:', error);
-    res.status(500).json({
-      error: 'Profile fetch failed',
-      message: 'An error occurred while fetching profile'
-    });
-  }
-});
-
-// Update user profile
-router.put('/profile', authenticateToken, async (req, res) => {
-  try {
-    const { firstName, lastName, email } = req.body;
-    const userId = req.user.userId;
-
-    // Check if email is already taken by another user
-    if (email) {
-      const existingUser = await query(
-        'SELECT id FROM users WHERE email = $1 AND id != $2',
-        [email, userId]
-      );
-
-      if (existingUser.rows.length > 0) {
-        return res.status(409).json({
-          error: 'Email already taken',
-          message: 'This email is already in use by another user'
-        });
-      }
-    }
-
-    // Update user profile
-    const updateResult = await query(
-      `UPDATE users 
-       SET first_name = COALESCE($1, first_name),
-           last_name = COALESCE($2, last_name),
-           email = COALESCE($3, email),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING id, email, first_name, last_name, updated_at`,
-      [firstName, lastName, email, userId]
-    );
-
-    if (updateResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'User profile not found'
-      });
-    }
-
-    const updatedUser = updateResult.rows[0];
-
-    // Log the profile update
-    await query(
-      `INSERT INTO audit_logs (user_id, action, resource, details, ip_address, user_agent)
-       VALUES ($1, 'update_profile', 'user', $2, $3, $4)`,
-      [
-        userId,
-        JSON.stringify({ 
-          firstName: updatedUser.first_name,
-          lastName: updatedUser.last_name,
-          email: updatedUser.email
+    // Log successful login
+    await prisma.log.create({
+      data: {
+        action: 'USER_LOGIN',
+        entityType: 'USER',
+        entityId: user.id,
+        userId: user.id,
+        details: JSON.stringify({
+          email,
+          rememberMe,
+          tokenExpiry
         }),
-        req.ip,
-        req.get('User-Agent')
-      ]
-    );
-
-    res.json({
-      message: 'Profile updated successfully',
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        firstName: updatedUser.first_name,
-        lastName: updatedUser.last_name,
-        updatedAt: updatedUser.updated_at
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        severity: 'INFO'
       }
     });
 
+    logger.info(`User logged in: ${email}`);
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          lastLogin: user.lastLogin
+        },
+        expiresIn: tokenExpiry
+      },
+      message: 'Login successful'
+    });
   } catch (error) {
-    console.error('Profile update error:', error);
+    logger.error('Login error:', error);
     res.status(500).json({
-      error: 'Profile update failed',
-      message: 'An error occurred while updating profile'
+      success: false,
+      error: 'Internal server error during login'
     });
   }
 });
 
-// Logout endpoint
-router.post('/logout', authenticateToken, async (req, res) => {
+// Logout
+router.post('/logout', async (req, res) => {
   try {
-    // Log the logout event
-    await query(
-      `INSERT INTO audit_logs (user_id, action, resource, details, ip_address, user_agent)
-       VALUES ($1, 'logout', 'auth', $2, $3, $4)`,
-      [
-        req.user.userId,
-        JSON.stringify({ timestamp: new Date().toISOString() }),
-        req.ip,
-        req.get('User-Agent')
-      ]
-    );
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Log logout
+        await prisma.log.create({
+          data: {
+            action: 'USER_LOGOUT',
+            entityType: 'USER',
+            entityId: decoded.id,
+            userId: decoded.id,
+            details: JSON.stringify({
+              email: decoded.email
+            }),
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+            severity: 'INFO'
+          }
+        });
+
+        logger.info(`User logged out: ${decoded.email}`);
+      } catch (jwtError) {
+        // Invalid token, but still return success
+      }
+    }
 
     res.json({
+      success: true,
       message: 'Logout successful'
     });
-
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error:', error);
     res.status(500).json({
-      error: 'Logout failed',
-      message: 'An error occurred during logout'
+      success: false,
+      error: 'Internal server error during logout'
     });
   }
 });
 
-// Verify token endpoint
-router.get('/verify', authenticateToken, (req, res) => {
-  res.json({
-    valid: true,
-    user: {
-      id: req.user.userId,
-      email: req.user.email,
-      role: req.user.role,
-      permissions: req.user.permissions
+// Verify token
+router.get('/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'No token provided'
+      });
     }
-  });
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // Check if user still exists and is active
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          lastLogin: true
+        }
+      });
+
+      if (!user || user.status !== 'ACTIVE') {
+        return res.status(401).json({
+          success: false,
+          error: 'User account is inactive or not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          user,
+          tokenValid: true
+        }
+      });
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or expired token'
+      });
+    }
+  } catch (error) {
+    logger.error('Token verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error during token verification'
+    });
+  }
+});
+
+// Refresh token
+router.post('/refresh', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'No token provided'
+      });
+    }
+
+    try {
+      // Verify current token (even if expired)
+      const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+      
+      // Check if user still exists and is active
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id }
+      });
+
+      if (!user || user.status !== 'ACTIVE') {
+        return res.status(401).json({
+          success: false,
+          error: 'User account is inactive or not found'
+        });
+      }
+
+      // Generate new token
+      const newToken = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      // Log token refresh
+      await prisma.log.create({
+        data: {
+          action: 'TOKEN_REFRESHED',
+          entityType: 'USER',
+          entityId: user.id,
+          userId: user.id,
+          details: JSON.stringify({
+            email: user.email
+          }),
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          severity: 'INFO'
+        }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          token: newToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role
+          },
+          expiresIn: JWT_EXPIRES_IN
+        },
+        message: 'Token refreshed successfully'
+      });
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token'
+      });
+    }
+  } catch (error) {
+    logger.error('Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error during token refresh'
+    });
+  }
+});
+
+// Change password
+router.post('/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Current password and new password are required'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password must be at least 8 characters long'
+      });
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id }
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+      
+      if (!isValidPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Current password is incorrect'
+        });
+      }
+
+      // Hash new password
+      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+      // Update password
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: hashedNewPassword,
+          passwordChangedAt: new Date()
+        }
+      });
+
+      // Log password change
+      await prisma.log.create({
+        data: {
+          action: 'PASSWORD_CHANGED',
+          entityType: 'USER',
+          entityId: user.id,
+          userId: user.id,
+          details: JSON.stringify({
+            email: user.email
+          }),
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          severity: 'INFO'
+        }
+      });
+
+      logger.info(`Password changed for user: ${user.email}`);
+
+      res.json({
+        success: true,
+        message: 'Password changed successfully'
+      });
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token'
+      });
+    }
+  } catch (error) {
+    logger.error('Password change error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error during password change'
+    });
+  }
+});
+
+// Request password reset
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If the email exists, a password reset link has been sent'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+    // Store reset token (in production, store hashed version)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken,
+        resetTokenExpiry
+      }
+    });
+
+    // Log password reset request
+    await prisma.log.create({
+      data: {
+        action: 'PASSWORD_RESET_REQUESTED',
+        entityType: 'USER',
+        entityId: user.id,
+        userId: user.id,
+        details: JSON.stringify({
+          email: user.email,
+          resetTokenExpiry
+        }),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        severity: 'INFO'
+      }
+    });
+
+    // In production, send actual email
+    logger.info(`Password reset requested for: ${email}`);
+    logger.info(`Reset link: ${process.env.FRONTEND_URL}/reset-password/${resetToken}`);
+
+    res.json({
+      success: true,
+      message: 'If the email exists, a password reset link has been sent'
+    });
+  } catch (error) {
+    logger.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error during password reset request'
+    });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Reset token and new password are required'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password must be at least 8 characters long'
+      });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: {
+          gt: new Date()
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired reset token'
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password and clear reset token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hashedPassword,
+        passwordChangedAt: new Date(),
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    // Log password reset
+    await prisma.log.create({
+      data: {
+        action: 'PASSWORD_RESET_COMPLETED',
+        entityType: 'USER',
+        entityId: user.id,
+        userId: user.id,
+        details: JSON.stringify({
+          email: user.email
+        }),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        severity: 'INFO'
+      }
+    });
+
+    logger.info(`Password reset completed for: ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    logger.error('Password reset error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error during password reset'
+    });
+  }
 });
 
 export default router;

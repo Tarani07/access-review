@@ -3,8 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import { PrismaClient } from '@prisma/client';
 import logger from './utils/logger.js';
+import { getPrismaClient, disconnectDatabase, checkDatabaseHealth } from './utils/database.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { auditLogger } from './middleware/auditLogger.js';
 
@@ -22,7 +22,7 @@ import slackRoutes from './routes/slack.js';
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 const PORT = process.env.PORT || 3001;
 
 // Security middleware
@@ -57,14 +57,38 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Audit logging middleware
 app.use(auditLogger);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    version: '2.0.0',
-    service: 'SparrowVision Backend'
-  });
+// Enhanced health check with database validation
+app.get('/health', async (req, res) => {
+  try {
+    const dbHealth = await checkDatabaseHealth();
+    const memoryUsage = process.memoryUsage();
+    const uptime = process.uptime();
+    
+    res.json({ 
+      status: dbHealth.status === 'healthy' ? 'OK' : 'DEGRADED',
+      timestamp: new Date().toISOString(),
+      version: '2.0.0',
+      service: 'SparrowVision Backend',
+      database: dbHealth,
+      system: {
+        uptime: Math.floor(uptime),
+        memory: {
+          rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
+          heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`,
+          heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB`
+        },
+        node: process.version,
+        env: process.env.NODE_ENV || 'development'
+      }
+    });
+  } catch (error) {
+    logger.error('Health check failed', error);
+    res.status(503).json({
+      status: 'ERROR',
+      error: 'Health check failed',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API Routes
@@ -82,17 +106,37 @@ app.use('/api/slack', slackRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-// Graceful shutdown
+// Enhanced graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('Received SIGINT. Shutting down gracefully...');
-  await prisma.$disconnect();
+  try {
+    await disconnectDatabase();
+    logger.info('Database disconnected successfully');
+  } catch (error) {
+    logger.error('Error during database disconnect', error);
+  }
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('Received SIGTERM. Shutting down gracefully...');
-  await prisma.$disconnect();
+  try {
+    await disconnectDatabase();
+    logger.info('Database disconnected successfully');
+  } catch (error) {
+    logger.error('Error during database disconnect', error);
+  }
   process.exit(0);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 // Start server
