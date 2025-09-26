@@ -253,40 +253,58 @@ export default function UsersSection() {
 
   const fetchJumpCloudUsers = async () => {
     if (!jumpCloudConfig.isConfigured) {
-      throw new Error('JumpCloud not configured');
+      throw new Error('JumpCloud not configured properly');
     }
 
-    // Real JumpCloud API implementation would go here
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-api-key': jumpCloudConfig.apiKey,
-    };
-
     try {
-      // This is where the real API call would be made
-      // const response = await fetch(`${jumpCloudConfig.baseUrl}/systemusers`, { headers });
-      // const data = await response.json();
-      // return data.results;
+      // Real JumpCloud sync API call
+      const response = await fetch('/api/jumpcloud/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullSync: true
+        })
+      });
 
-      // Mock implementation for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return {
-        totalUsers: 1278,
-        newUsers: 15,
-        updatedUsers: 23,
-        users: [] // Real user data would be here
-      };
+      const result = await response.json();
+
+      if (result.success) {
+        // Update sync status with real data
+        setJumpCloudStatus({
+          isActive: true,
+          lastSync: result.data.syncedAt,
+          totalUsers: result.data.totalFetched,
+          newUsers: result.data.created,
+          updatedUsers: result.data.updated,
+          errors: result.data.errors > 0 ? [`${result.data.errors} users failed to sync`] : []
+        });
+
+        console.log('JumpCloud sync completed:', result.data);
+
+        return {
+          totalUsers: result.data.totalFetched,
+          newUsers: result.data.created,
+          updatedUsers: result.data.updated,
+          errors: result.data.errors,
+          users: [] // Users are saved to database, not returned directly
+        };
+      } else {
+        throw new Error(result.error || 'Sync failed');
+      }
     } catch (error) {
-      throw new Error(`Failed to fetch JumpCloud users: ${error}`);
+      console.error('JumpCloud sync failed:', error);
+      throw new Error(`Failed to sync JumpCloud users: ${(error as Error).message}`);
     }
   };
 
   const testJumpCloudConnection = async () => {
-    if (!jumpCloudConfig.apiKey || !jumpCloudConfig.orgId) {
+    if (!jumpCloudConfig.apiKey) {
       setJumpCloudConfig(prev => ({
         ...prev,
         connectionStatus: 'ERROR',
-        errorMessage: 'API Key and Organization ID are required'
+        errorMessage: 'API Key is required'
       }));
       return;
     }
@@ -297,31 +315,47 @@ export default function UsersSection() {
     }));
 
     try {
-      // Real JumpCloud API test call would go here
-      // const response = await fetch(`${jumpCloudConfig.baseUrl}/organizations/${jumpCloudConfig.orgId}`, {
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'x-api-key': jumpCloudConfig.apiKey,
-      //   },
-      // });
+      // Real JumpCloud API test call
+      const response = await fetch('/api/jumpcloud/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey: jumpCloudConfig.apiKey,
+          orgId: jumpCloudConfig.orgId
+        })
+      });
 
-      // Mock successful connection test
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setJumpCloudConfig(prev => ({
-        ...prev,
-        connectionStatus: 'CONNECTED',
-        lastTested: new Date().toISOString(),
-        errorMessage: undefined,
-        isConfigured: true
-      }));
+      const result = await response.json();
 
-      setJumpCloudStatus(prev => ({
-        ...prev,
-        isActive: true
-      }));
+      if (result.success) {
+        setJumpCloudConfig(prev => ({
+          ...prev,
+          connectionStatus: 'CONNECTED',
+          lastTested: new Date().toISOString(),
+          errorMessage: undefined,
+          isConfigured: true
+        }));
+
+        setJumpCloudStatus(prev => ({
+          ...prev,
+          isActive: true,
+          totalUsers: result.data?.userCount || 0
+        }));
+
+        console.log('JumpCloud connection successful:', result.data);
+      } else {
+        setJumpCloudConfig(prev => ({
+          ...prev,
+          connectionStatus: 'ERROR',
+          errorMessage: result.error || 'Connection failed',
+          lastTested: new Date().toISOString()
+        }));
+      }
 
     } catch (error) {
+      console.error('JumpCloud connection test failed:', error);
       setJumpCloudConfig(prev => ({
         ...prev,
         connectionStatus: 'ERROR',
@@ -331,10 +365,41 @@ export default function UsersSection() {
     }
   };
 
-  const saveJumpCloudConfig = () => {
-    // In a real app, this would save to backend/localStorage
-    localStorage.setItem('jumpcloud-config', JSON.stringify(jumpCloudConfig));
-    setShowJumpCloudConfig(false);
+  const saveJumpCloudConfig = async () => {
+    try {
+      // Save to backend
+      const response = await fetch('/api/jumpcloud/configure', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey: jumpCloudConfig.apiKey,
+          orgId: jumpCloudConfig.orgId,
+          baseUrl: jumpCloudConfig.baseUrl,
+          isActive: true
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Also save to localStorage as backup
+        localStorage.setItem('jumpcloud-config', JSON.stringify(jumpCloudConfig));
+        setShowJumpCloudConfig(false);
+        console.log('JumpCloud configuration saved successfully');
+      } else {
+        console.error('Failed to save JumpCloud configuration:', result.error);
+        // Still save to localStorage if backend fails
+        localStorage.setItem('jumpcloud-config', JSON.stringify(jumpCloudConfig));
+        setShowJumpCloudConfig(false);
+      }
+    } catch (error) {
+      console.error('Error saving JumpCloud configuration:', error);
+      // Fallback to localStorage only
+      localStorage.setItem('jumpcloud-config', JSON.stringify(jumpCloudConfig));
+      setShowJumpCloudConfig(false);
+    }
   };
 
   const loadJumpCloudConfig = () => {

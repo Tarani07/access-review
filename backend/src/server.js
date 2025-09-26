@@ -18,6 +18,7 @@ import reportsRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
 import logsRoutes from './routes/logs.js';
 import slackRoutes from './routes/slack.js';
+import jumpcloudRoutes from './routes/jumpcloud.js';
 
 dotenv.config();
 
@@ -101,6 +102,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/slack', slackRoutes);
+app.use('/api/jumpcloud', jumpcloudRoutes);
 
 // Error handling
 app.use(notFound);

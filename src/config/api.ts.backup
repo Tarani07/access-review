@@ -61,13 +61,6 @@ export const API_CONFIG = {
       configure: '/api/slack/configure',
       test: '/api/slack/test',
       send: '/api/slack/send'
-    },
-    jumpcloud: {
-      testConnection: '/api/jumpcloud/test-connection',
-      configure: '/api/jumpcloud/configure',
-      status: '/api/jumpcloud/status',
-      sync: '/api/jumpcloud/sync',
-      syncHistory: '/api/jumpcloud/sync-history'
     }
   },
   
