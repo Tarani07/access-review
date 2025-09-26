@@ -14,7 +14,10 @@ import {
   Calendar,
   Clock,
   Mail,
-  Send
+  Send,
+  UserMinus,
+  Plus,
+  Target
 } from 'lucide-react';
 
 interface ReviewItem {
@@ -282,6 +285,85 @@ export default function AccessReviewSection() {
           <Eye className="h-4 w-4 mr-2" />
           Start New Review
         </button>
+      </div>
+
+      {/* Custom Review Options */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Target className="h-5 w-5 mr-2 text-emerald-600" />
+          Custom Review Options
+        </h2>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Exit Employee Review */}
+          <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+            <div className="flex items-center mb-3">
+              <UserMinus className="h-5 w-5 text-red-600 mr-2" />
+              <h3 className="font-medium text-red-900">Exit Employee Access Review</h3>
+            </div>
+            <p className="text-sm text-red-700 mb-4">
+              Identify and review access for employees who have left the organization
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-red-900 mb-1">
+                  Exit Employee Email(s)
+                </label>
+                <textarea
+                  placeholder="john.doe@company.com&#10;jane.smith@company.com&#10;(Enter one email per line)"
+                  className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                  rows={3}
+                />
+              </div>
+              <div className="flex space-x-2">
+                <button className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center">
+                  <UserMinus className="h-4 w-4 mr-1" />
+                  Review Exit Access
+                </button>
+                <button className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center">
+                  <Download className="h-4 w-4 mr-1" />
+                  Export Data
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Targeted Review */}
+          <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div className="flex items-center mb-3">
+              <Plus className="h-5 w-5 text-blue-600 mr-2" />
+              <h3 className="font-medium text-blue-900">Custom Targeted Review</h3>
+            </div>
+            <p className="text-sm text-blue-700 mb-4">
+              Create a custom review based on specific criteria
+            </p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-blue-900 mb-1">Filter By</label>
+                  <select className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <option>Department</option>
+                    <option>Job Title</option>
+                    <option>Last Access</option>
+                    <option>Risk Score</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-blue-900 mb-1">Value</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g., Engineering"
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              </div>
+              <button className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center">
+                <Target className="h-4 w-4 mr-1" />
+                Create Custom Review
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Review Stats */}

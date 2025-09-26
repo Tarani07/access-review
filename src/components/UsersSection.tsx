@@ -734,6 +734,7 @@ export default function UsersSection() {
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Permissions</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last Access</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -759,6 +760,30 @@ export default function UsersSection() {
                           </td>
                           <td className="px-4 py-2 text-sm text-gray-600">
                             {toolAccess.lastAccess ? new Date(toolAccess.lastAccess).toLocaleDateString() : 'Never'}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="flex space-x-2">
+                              <button
+                                className="text-green-600 hover:text-green-800 p-1 rounded"
+                                title="Add User to Tool"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  console.log(`Adding user ${selectedUser.name} to ${toolAccess.toolName}`);
+                                }}
+                              >
+                                <UserPlus className="h-4 w-4" />
+                              </button>
+                              <button
+                                className="text-red-600 hover:text-red-800 p-1 rounded"
+                                title="Remove User from Tool"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  console.log(`Removing user ${selectedUser.name} from ${toolAccess.toolName}`);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

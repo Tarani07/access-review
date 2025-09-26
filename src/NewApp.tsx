@@ -28,7 +28,7 @@ function NewApp() {
       case 'dashboard':
         return <NewDashboard onNavigate={setActiveTab} />;
       
-      case 'integration-center':
+      case 'app-center':
         return <IntegrationCenter />;
       
       case 'users':

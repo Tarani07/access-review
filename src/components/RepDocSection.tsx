@@ -13,7 +13,10 @@ import {
   Award,
   Printer,
   Share,
-  Archive
+  Archive,
+  Users,
+  Bell,
+  Settings
 } from 'lucide-react';
 
 interface Report {
@@ -341,6 +344,152 @@ export default function RepDocSection() {
             <FileText className="h-4 w-4 mr-2" />
             Generate Report
           </button>
+        </div>
+      </div>
+
+      {/* Team Notifications */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Bell className="h-5 w-5 mr-2 text-emerald-600" />
+            Team Notifications
+          </h2>
+          <button className="text-sm text-gray-600 hover:text-gray-800 flex items-center">
+            <Settings className="h-4 w-4 mr-1" />
+            Notification Settings
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Automated Team Notifications */}
+          <div className="border border-emerald-200 rounded-lg p-4 bg-emerald-50">
+            <div className="flex items-center mb-3">
+              <Mail className="h-5 w-5 text-emerald-600 mr-2" />
+              <h3 className="font-medium text-emerald-900">Automated Notifications</h3>
+            </div>
+            <p className="text-sm text-emerald-700 mb-4">
+              Send automated reports to respective teams based on access review findings
+            </p>
+            
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-emerald-900 mb-1">Team</label>
+                  <select className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option>IT Security Team</option>
+                    <option>HR Team</option>
+                    <option>Engineering Team</option>
+                    <option>Marketing Team</option>
+                    <option>Finance Team</option>
+                    <option>All Teams</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-emerald-900 mb-1">Template</label>
+                  <select className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option>Access Review Summary</option>
+                    <option>Exit Employee Report</option>
+                    <option>New Access Granted</option>
+                    <option>Compliance Alert</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded p-3 border border-emerald-200">
+                <label className="block text-xs font-medium text-emerald-900 mb-1">Preview Email Content</label>
+                <div className="text-xs text-gray-700 space-y-1">
+                  <p><strong>Subject:</strong> Access Review Report - Monthly Summary</p>
+                  <p><strong>Content:</strong> Dear Team,</p>
+                  <p>Please find the attached access review report for this month...</p>
+                  <p className="text-emerald-600 italic">• Automated content based on findings</p>
+                  <p className="text-emerald-600 italic">• Includes team-specific recommendations</p>
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                <button className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center">
+                  <Send className="h-3 w-3 mr-1" />
+                  Send Auto Report
+                </button>
+                <button className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-2 rounded text-sm font-medium transition-colors">
+                  Schedule
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Manual Team Notifications */}
+          <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div className="flex items-center mb-3">
+              <Users className="h-5 w-5 text-blue-600 mr-2" />
+              <h3 className="font-medium text-blue-900">Manual Team Notifications</h3>
+            </div>
+            <p className="text-sm text-blue-700 mb-4">
+              Send customized reports with manual content to specific teams
+            </p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-blue-900 mb-1">Recipient Teams</label>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <label className="flex items-center">
+                    <input type="checkbox" className="mr-1 text-blue-600" defaultChecked />
+                    IT Security
+                  </label>
+                  <label className="flex items-center">
+                    <input type="checkbox" className="mr-1 text-blue-600" />
+                    HR Team
+                  </label>
+                  <label className="flex items-center">
+                    <input type="checkbox" className="mr-1 text-blue-600" defaultChecked />
+                    Engineering
+                  </label>
+                  <label className="flex items-center">
+                    <input type="checkbox" className="mr-1 text-blue-600" />
+                    Compliance
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-blue-900 mb-1">Custom Subject</label>
+                <input 
+                  type="text"
+                  placeholder="Urgent: Access Review Required"
+                  className="w-full px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-blue-900 mb-1">Custom Message</label>
+                <textarea
+                  placeholder="Add your custom message for the teams..."
+                  className="w-full px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+              </div>
+
+              <button className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center">
+                <Mail className="h-3 w-3 mr-1" />
+                Send Custom Report
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-gray-600">
+              <p className="font-medium text-gray-700 mb-1">Notification Guidelines</p>
+              <ul className="space-y-0.5">
+                <li>• Automated notifications are sent based on configured rules</li>
+                <li>• Manual notifications allow custom content and targeting</li>
+                <li>• All notifications include audit trails for compliance</li>
+                <li>• Teams can unsubscribe or modify notification preferences</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 

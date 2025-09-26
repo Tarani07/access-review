@@ -938,8 +938,8 @@ export default function IntegrationCenter() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Integration Center</h1>
-          <p className="text-gray-600 mt-1">Connect and manage all your business tools for comprehensive access reviews</p>
+          <h1 className="text-3xl font-bold text-gray-900">App Center</h1>
+          <p className="text-gray-600 mt-1">Connect integrations, custom tools, and purchased applications for comprehensive access reviews</p>
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -969,6 +969,76 @@ export default function IntegrationCenter() {
         <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
           <div className="text-2xl font-bold text-purple-700">{templates.length}</div>
           <div className="text-sm text-purple-600">Available Integrations</div>
+        </div>
+      </div>
+
+      {/* Custom & Purchased Tools */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Custom & Purchased Tools</h2>
+          <p className="text-gray-600 text-sm mt-1">Manage your organization's custom-built and purchased applications</p>
+        </div>
+        
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Placeholder Custom Tools */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-emerald-500 hover:bg-emerald-50 transition-colors">
+              <div className="w-12 h-12 mx-auto mb-3 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <Settings className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h3 className="font-medium text-gray-900 mb-1">Internal HR Portal</h3>
+              <p className="text-sm text-gray-500 mb-3">Custom-built employee management system</p>
+              <div className="flex items-center justify-center space-x-2 text-xs text-gray-400">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Connected</span>
+              </div>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-emerald-500 hover:bg-emerald-50 transition-colors">
+              <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Database className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="font-medium text-gray-900 mb-1">Project Management Tool</h3>
+              <p className="text-sm text-gray-500 mb-3">Purchased enterprise solution</p>
+              <div className="flex items-center justify-center space-x-2 text-xs text-gray-400">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                <span>Setup Required</span>
+              </div>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-emerald-500 hover:bg-emerald-50 transition-colors">
+              <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Plus className="h-6 w-6 text-gray-600" />
+              </div>
+              <h3 className="font-medium text-gray-900 mb-1">Add Custom Tool</h3>
+              <p className="text-sm text-gray-500 mb-3">Register a new custom or purchased application</p>
+              <button className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                + Configure
+              </button>
+            </div>
+          </div>
+          
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="font-medium text-blue-900">Custom Tool Integration</h4>
+                <p className="text-sm text-blue-800 mt-1">
+                  For custom tools, you can integrate using our REST API or upload user lists via CSV. 
+                  Contact your administrator for API credentials and documentation.
+                </p>
+                <div className="mt-2 flex space-x-2">
+                  <button className="text-sm text-blue-700 hover:text-blue-800 underline">
+                    View API Documentation
+                  </button>
+                  <span className="text-blue-600">•</span>
+                  <button className="text-sm text-blue-700 hover:text-blue-800 underline">
+                    Download CSV Template
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
