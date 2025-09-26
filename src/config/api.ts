@@ -1,71 +1,99 @@
-// API Configuration for Sparrow Vision IGA Platform
-
-// Production API URL - Your Railway backend URL
-export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://access-review-production.up.railway.app/api'
-  : 'http://localhost:3001/api';
-
-// API Endpoints
-export const API_ENDPOINTS = {
-  // Authentication
-  LOGIN: '/auth/login',
-  REGISTER: '/auth/register',
-  PROFILE: '/auth/profile',
-  LOGOUT: '/auth/logout',
-  VERIFY: '/auth/verify',
+// SparrowVision API Configuration
+export const API_CONFIG = {
+  // Development API URL (local backend)
+  DEV_API_URL: 'http://localhost:3001',
   
-  // Dashboard
-  DASHBOARD_STATS: '/dashboard/stats',
-  DASHBOARD_AUDIT_LOGS: '/dashboard/audit-logs',
-  DASHBOARD_RISK_ASSESSMENT: '/dashboard/risk-assessment',
+  // Production API URL - UPDATE THIS after Railway deployment
+  PROD_API_URL: 'https://sparrowvision-backend-production.railway.app',
   
-  // Users
-  USERS: '/users',
+  // Current environment detection
+  isDevelopment: import.meta.env.MODE === 'development',
   
-  // Roles
-  ROLES: '/roles',
+  // Get the appropriate API URL based on environment
+  get baseURL() {
+    return this.isDevelopment ? this.DEV_API_URL : this.PROD_API_URL;
+  },
   
-  // Audit
-  AUDIT_LOGS: '/audit',
-  
-  // Policies
-  POLICIES: '/policies',
-  POLICY_VIOLATIONS: '/policies/violations',
-  
-  // Health
-  HEALTH: '/health'
-};
-
-// Helper function to get full API URL
-export const getApiUrl = (endpoint: string): string => {
-  return `${API_BASE_URL}${endpoint}`;
-};
-
-// API Request helper
-export const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
-  const url = getApiUrl(endpoint);
-  
-  const defaultOptions: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
+  // API endpoints
+  endpoints: {
+    auth: {
+      login: '/api/auth/login',
+      logout: '/api/auth/logout',
+      verify: '/api/auth/verify'
     },
-  };
-
-  // Add authorization header if token exists
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    defaultOptions.headers = {
-      ...defaultOptions.headers,
-      'Authorization': `Bearer ${token}`,
+    dashboard: {
+      stats: '/api/dashboard/stats',
+      exitEmployees: '/api/dashboard/exit-employees'
+    },
+    tools: {
+      list: '/api/tools',
+      sync: '/api/tools/sync',
+      add: '/api/tools/add',
+      delete: '/api/tools'
+    },
+    users: {
+      list: '/api/users',
+      jumpcloud: '/api/users/jumpcloud',
+      validation: '/api/users/validate'
+    },
+    reviews: {
+      list: '/api/reviews',
+      create: '/api/reviews',
+      complete: '/api/reviews',
+      export: '/api/reviews/export'
+    },
+    reports: {
+      generate: '/api/reports/generate',
+      list: '/api/reports',
+      download: '/api/reports/download',
+      notifications: '/api/reports/notifications'
+    },
+    admin: {
+      users: '/api/admin/users',
+      roles: '/api/admin/roles',
+      invites: '/api/admin/invites'
+    },
+    logs: {
+      audit: '/api/logs',
+      system: '/api/logs/system'
+    },
+    slack: {
+      configure: '/api/slack/configure',
+      test: '/api/slack/test',
+      send: '/api/slack/send'
+    }
+  },
+  
+  // Helper function to build full URL
+  buildUrl(endpoint: string): string {
+    return `${this.baseURL}${endpoint}`;
+  },
+  
+  // Common headers for API requests
+  getHeaders(includeAuth: boolean = true): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
     };
-  }
-
-  const response = await fetch(url, { ...defaultOptions, ...options });
+    
+    if (includeAuth) {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    
+    return headers;
+  },
   
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  // HTTP client configuration
+  defaultOptions: {
+    timeout: 30000, // 30 seconds
+    retries: 3,
+    retryDelay: 1000 // 1 second
   }
-  
-  return response.json();
 };
+
+// Export individual components for convenience
+export const { baseURL, endpoints, buildUrl, getHeaders } = API_CONFIG;
+
+export default API_CONFIG;
