@@ -255,21 +255,12 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <button 
-            onClick={() => onNavigate('analytics')}
-            className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
-          >
-            <BarChart3 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-            <div className="font-medium text-gray-700">View Analytics</div>
-            <div className="text-sm text-gray-500">Advanced insights</div>
-          </button>
-
-          <button 
             onClick={() => onNavigate('integration-center')}
             className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
           >
             <Settings className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-            <div className="font-medium text-gray-700">Add Integration</div>
-            <div className="text-sm text-gray-500">150+ tools available</div>
+            <div className="font-medium text-gray-700">Add New Integration</div>
+            <div className="text-sm text-gray-500">150+ API, Webhook & CSV</div>
           </button>
           
           <button 
@@ -277,8 +268,8 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
             className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
           >
             <Eye className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-            <div className="font-medium text-gray-700">Access Review</div>
-            <div className="text-sm text-gray-500">User & tool reviews</div>
+            <div className="font-medium text-gray-700">Start Access Review</div>
+            <div className="text-sm text-gray-500">User-wise or Tool-wise</div>
           </button>
           
           <button 
@@ -286,8 +277,17 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
             className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
           >
             <Users className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-            <div className="font-medium text-gray-700">Sync Users</div>
-            <div className="text-sm text-gray-500">JumpCloud integration</div>
+            <div className="font-medium text-gray-700">Sync JumpCloud</div>
+            <div className="text-sm text-gray-500">User directory sync</div>
+          </button>
+          
+          <button 
+            onClick={() => onNavigate('logs')}
+            className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors text-center"
+          >
+            <Activity className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+            <div className="font-medium text-gray-700">View Audit Logs</div>
+            <div className="text-sm text-gray-500">ISO 27001 compliant</div>
           </button>
         </div>
       </div>
