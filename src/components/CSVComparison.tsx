@@ -113,7 +113,7 @@ export default function CSVComparison({ toolName, onComparisonComplete, onClose 
 
     try {
       // Use backend API for comparison analysis
-      const response = await fetch('https://access-review-production.up.railway.app/api/proxy/csv-comparison', {
+      const response = await fetch(`${API_CONFIG.baseURL}/api/csv/compare`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

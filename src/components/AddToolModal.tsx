@@ -102,7 +102,7 @@ export default function AddToolModal({ isOpen, onClose, onAddTool }: AddToolModa
 
     try {
       // Use our backend proxy to avoid CORS issues
-      const response = await fetch('https://access-review-production.up.railway.app/api/proxy/test-tool', {
+      const response = await fetch(`${API_CONFIG.baseURL}/api/tools/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

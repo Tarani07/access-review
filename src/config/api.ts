@@ -1,17 +1,22 @@
-// SparrowVision API Configuration
+// SparrowVision API Configuration - Netlify Functions
 export const API_CONFIG = {
-  // Development API URL (local backend)
-  DEV_API_URL: 'http://localhost:3001',
+  // Development API URL (local backend or Netlify dev)
+  DEV_API_URL: import.meta.env.VITE_DEV_API_URL || 'http://localhost:3001',
   
-  // Production API URL - UPDATE THIS after Railway deployment
-  PROD_API_URL: 'https://access-review-production.up.railway.app',
+  // Production API URL - Netlify Functions
+  PROD_API_URL: import.meta.env.VITE_API_URL || '/.netlify/functions',
   
   // Current environment detection
   isDevelopment: import.meta.env.MODE === 'development',
+  isNetlifyDev: import.meta.env.VITE_NETLIFY_DEV === 'true',
   
   // Get the appropriate API URL based on environment
   get baseURL() {
-    return this.isDevelopment ? this.DEV_API_URL : this.PROD_API_URL;
+    // Force Netlify Functions in production or when explicitly set
+    if (!this.isDevelopment || this.isNetlifyDev || import.meta.env.VITE_USE_NETLIFY_FUNCTIONS === 'true') {
+      return this.PROD_API_URL;
+    }
+    return this.DEV_API_URL;
   },
   
   // API endpoints

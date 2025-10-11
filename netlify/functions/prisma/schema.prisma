@@ -1,0 +1,434 @@
+// SparrowVision Enhanced Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enhanced User Management
+model User {
+  id                    String     @id @default(cuid())
+  email                 String     @unique
+  name                  String?
+  employeeId            String?    @unique
+  department            String?
+  jobTitle              String?
+  manager               String?
+  location              String?
+  phoneNumber           String?
+  role                  UserRole   @default(VIEW)
+  status                UserStatus @default(ACTIVE)
+  riskScore             Int        @default(10)
+  passwordHash          String?
+  lastLogin             DateTime?
+  loginCount            Int        @default(0)
+  invitedBy             String?
+  invitedAt             DateTime   @default(now())
+  createdAt             DateTime   @default(now())
+  createdDate           DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  exitDate              DateTime?
+  exitReason            String?
+  lastSyncAt            DateTime?
+  syncSource            String?    // JUMPCLOUD, MANUAL, etc.
+  passwordChangedAt     DateTime?
+  resetToken            String?
+  resetTokenExpiry      DateTime?
+  deactivatedAt         DateTime?
+  deactivatedBy         String?
+  deactivationReason    String?
+  reactivatedAt         DateTime?
+  reactivatedBy         String?
+
+  // Relations
+  reviewsCreated        AccessReview[] @relation("AccessReviewCreator")
+  logsCreated           AuditLog[]
+  logs                  Log[] @relation("LogUser")
+  userAccess           UserAccess[]
+  invitesSent          Invite[] @relation("InvitedBy")
+  
+  @@map("users")
+}
+
+// Enhanced Tools Integration
+model Tool {
+  id              String      @id @default(cuid())
+  name            String      @unique
+  type            ToolType
+  category        String      @default("INTEGRATION") // INTEGRATION, CUSTOM, PURCHASED
+  description     String?
+  integrationUrl  String?
+  webhookUrl      String?
+  apiKey          String?     @map("api_key") // encrypted
+  apiConfig       String?     // JSON string for enhanced API configuration
+  webhookConfig   String?     // JSON string for webhook configuration
+  csvConfig       String?     // JSON string for CSV configuration
+  logo            String?
+  isActive        Boolean     @default(true)
+  status          String      @default("INACTIVE") // ACTIVE, INACTIVE, SYNCING, ERROR, CONNECTED
+  lastSync        DateTime?
+  lastSyncAt      DateTime?
+  syncStatus      SyncStatus  @default(IDLE)
+  userCount       Int         @default(0)
+  errorMessage    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  toolUsers       ToolUser[]
+  userAccess      UserAccess[]
+  reviews         AccessReview[]
+  syncHistory     SyncHistory[]
+  
+  @@map("tools")
+}
+
+// Enhanced User Access (replaces ToolUser for per-tool management)
+model UserAccess {
+  id           String     @id @default(cuid())
+  userId       String
+  toolId       String
+  role         String
+  permissions  String[]   // Array of permissions
+  status       UserStatus @default(ACTIVE)
+  grantedAt    DateTime   @default(now())
+  removedAt    DateTime?
+  lastAccessed DateTime?
+  riskScore    Int        @default(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tool Tool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, toolId])
+  @@map("user_access")
+}
+
+// Tool Users (synced from integrations) - kept for compatibility
+model ToolUser {
+  id          String     @id @default(cuid())
+  toolId      String
+  email       String
+  name        String?
+  role        String?
+  permissions String[]   // JSON array of permissions
+  status      UserStatus @default(ACTIVE)
+  lastLogin   DateTime?
+  syncedAt    DateTime   @default(now())
+  
+  // Relations
+  tool        Tool       @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  @@unique([toolId, email])
+  @@map("tool_users")
+}
+
+// Enhanced Access Reviews
+model AccessReview {
+  id              String        @id @default(cuid())
+  title           String
+  reviewType      ReviewType
+  type            String?       // For compatibility: USER_WISE, TOOL_WISE, COMPLETE, EXIT_EMPLOYEE, CUSTOM
+  status          ReviewStatus  @default(PENDING)
+  toolId          String?       // for tool-wise reviews
+  targetUser      String?       // for user-wise reviews
+  targetTool      String?       // for compatibility
+  description     String?
+  totalUsers      Int           @default(0)
+  totalItems      Int           @default(0)
+  activeUsers     Int           @default(0)
+  exitUsers       Int           @default(0)
+  removedUsers    Int           @default(0)
+  reviewedItems   Int           @default(0)
+  flaggedItems    Int           @default(0)
+  removedItems    Int           @default(0)
+  startedAt       DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+  dueDate         DateTime?
+  createdBy       String
+  notes           String?
+  reportPath      String?       // path to generated report
+  certificatePath String?       // path to certificate
+  
+  // Relations
+  creator         User          @relation("AccessReviewCreator", fields: [createdBy], references: [id])
+  tool            Tool?         @relation(fields: [toolId], references: [id])
+  reviewItems     ReviewItem[]
+  entries         AccessReviewEntry[]
+  
+  @@map("access_reviews")
+}
+
+// Enhanced Review Items
+model ReviewItem {
+  id            String        @id @default(cuid())
+  reviewId      String
+  userEmail     String
+  userName      String?
+  toolName      String
+  userRole      String?
+  permissions   String[]
+  status        UserStatus
+  action        ReviewAction  @default(NO_ACTION)
+  reason        String?
+  reviewedAt    DateTime      @default(now())
+  shouldRemove  Boolean       @default(false)
+  reviewedBy    String?
+  notes         String?
+  riskScore     Int           @default(0)
+  
+  // Relations
+  review        AccessReview  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  @@map("review_items")
+}
+
+// New Access Review Entries for enhanced functionality
+model AccessReviewEntry {
+  id           String        @id @default(cuid())
+  reviewId     String
+  userId       String
+  toolId       String
+  userEmail    String
+  userName     String
+  toolName     String
+  role         String
+  permissions  String[]
+  status       String        @default("PENDING") // PENDING, APPROVED, FLAGGED, REMOVED
+  lastAccess   DateTime?
+  shouldRemove Boolean       @default(false)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  notes        String?
+  riskScore    Int           @default(0)
+
+  // Relations
+  review AccessReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("access_review_entries")
+}
+
+// Enhanced Reports
+model Report {
+  id              String    @id @default(cuid())
+  title           String
+  type            String    // ACCESS_REVIEW, COMPLIANCE, AUDIT, CERTIFICATION
+  reviewId        String?
+  status          String    @default("GENERATED") // GENERATED, CERTIFIED, SENT, ARCHIVED
+  generatedAt     DateTime  @default(now())
+  generatedBy     String
+  certifiedAt     DateTime?
+  certifiedBy     String?
+  sentAt          DateTime?
+  sentTo          String[]
+  filePath        String?
+  toolsReviewed   String[]
+  usersReviewed   Int       @default(0)
+  removals        Int       @default(0)
+  flags           Int       @default(0)
+  complianceFramework String?
+  data            String?   // JSON data
+
+  // Relations
+  certifications Certification[]
+
+  @@map("reports")
+}
+
+// Certifications
+model Certification {
+  id                String    @id @default(cuid())
+  reportId          String
+  framework         String
+  certifiedBy       String
+  certifiedAt       DateTime  @default(now())
+  validUntil        DateTime
+  certificateNumber String    @unique
+  status            String    @default("VALID") // VALID, EXPIRED, REVOKED
+
+  // Relations
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("certifications")
+}
+
+// Enhanced Logs (renamed from AuditLog for consistency)
+model Log {
+  id           String      @id @default(cuid())
+  action       String      // Login, Sync, Review, etc.
+  entityType   String?
+  entityId     String?
+  category     LogCategory
+  userId       String?
+  userEmail    String?
+  resourceId   String?     // Tool ID, Review ID, etc.
+  resourceType String?     // Tool, Review, User, etc.
+  details      Json?       // Additional context
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime    @default(now())
+  timestamp    DateTime    @default(now())
+  severity     String      @default("INFO") // INFO, WARNING, ERROR
+  
+  // Relations
+  user         User?       @relation("LogUser", fields: [userId], references: [id])
+  
+  @@map("logs")
+}
+
+// Keep AuditLog for compatibility
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      String      // Login, Sync, Review, etc.
+  category    LogCategory
+  userId      String?
+  userEmail   String?
+  resourceId  String?     // Tool ID, Review ID, etc.
+  resourceType String?    // Tool, Review, User, etc.
+  details     Json?       // Additional context
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime    @default(now())
+  
+  // Relations
+  user        User?       @relation(fields: [userId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+// Enhanced Slack Integration Settings
+model SlackSettings {
+  id            String   @id @default(cuid())
+  webhookUrl    String
+  isActive      Boolean  @default(true)
+  testSentAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  notifications Json?    // JSON object for notification preferences
+  
+  @@map("slack_settings")
+}
+
+// JumpCloud Integration (replaces Gshoot)
+model JumpCloudSync {
+  id             String      @id @default(cuid())
+  totalUsers     Int         @default(0)
+  activeUsers    Int         @default(0)
+  suspendedUsers Int         @default(0)
+  exitUsers      Int         @default(0)
+  lastSync       DateTime?
+  syncStatus     SyncStatus  @default(IDLE)
+  errorMessage   String?
+  apiKey         String?     // encrypted
+  orgId          String?
+  baseUrl        String?
+  
+  @@map("jumpcloud_sync")
+}
+
+// Invitations
+model Invite {
+  id          String    @id @default(cuid())
+  email       String
+  role        UserRole  @default(VIEW)
+  message     String?
+  token       String    @unique
+  status      String    @default("PENDING") // PENDING, ACCEPTED, EXPIRED, CANCELLED
+  invitedBy   String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  cancelledAt DateTime?
+  cancelledBy String?
+
+  // Relations
+  invitedByUser User @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@map("invites")
+}
+
+// Sync History
+model SyncHistory {
+  id            String      @id @default(cuid())
+  toolId        String
+  status        SyncStatus
+  usersSynced   Int         @default(0)
+  errorMessage  String?
+  startedAt     DateTime    @default(now())
+  completedAt   DateTime?
+  
+  // Relations
+  tool          Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  @@map("sync_history")
+}
+
+// Enhanced Enums
+enum UserRole {
+  VIEW
+  EDIT
+  LOGS
+  INTEGRATION
+  ADMIN
+  AUDITOR
+  MANAGER
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  EXIT
+  REMOVED
+  INACTIVE
+}
+
+enum ToolType {
+  API
+  WEBHOOK
+  CSV
+  GOOGLE_WORKSPACE
+}
+
+enum SyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  ERROR
+}
+
+enum ReviewType {
+  USER_WISE
+  TOOL_WISE
+  COMPLETE_REVIEW
+  EXIT_EMPLOYEE
+  CUSTOM
+}
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ReviewAction {
+  NO_ACTION
+  REMOVE
+  SUSPEND
+  REACTIVATE
+  UPDATE_ROLE
+}
+
+enum LogCategory {
+  AUTH
+  SYNC
+  REVIEW
+  ADMIN
+  SYSTEM
+  SECURITY
+}
