@@ -64,6 +64,7 @@
   node_bundler = "esbuild"
   external_node_modules = ["@prisma/client", "prisma"]
 
-# Edge functions configuration
-[edge_functions]
-  directory = "netlify/edge-functions"
+# Edge functions configuration (commented out for now)
+# [[edge_functions]]
+#   path = "/"
+#   function = "middleware"
