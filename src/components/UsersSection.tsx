@@ -257,11 +257,16 @@ export default function UsersSection() {
     }
 
     try {
+      // Get token from session
+      const session = JSON.parse(localStorage.getItem('iga_session') || '{}');
+      const token = session.token || '';
+      
       // Real JumpCloud sync API call
       const response = await fetch('/api/jumpcloud/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           fullSync: true
@@ -315,11 +320,16 @@ export default function UsersSection() {
     }));
 
     try {
+      // Get token from session
+      const session = JSON.parse(localStorage.getItem('iga_session') || '{}');
+      const token = session.token || '';
+      
       // Real JumpCloud API test call
       const response = await fetch('/api/jumpcloud/test-connection', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           apiKey: jumpCloudConfig.apiKey,
@@ -367,11 +377,16 @@ export default function UsersSection() {
 
   const saveJumpCloudConfig = async () => {
     try {
+      // Get token from session
+      const session = JSON.parse(localStorage.getItem('iga_session') || '{}');
+      const token = session.token || '';
+      
       // Save to backend
       const response = await fetch('/api/jumpcloud/configure', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           apiKey: jumpCloudConfig.apiKey,
