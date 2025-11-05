@@ -1,7 +1,7 @@
 [build]
   # Build settings for the frontend
   publish = "dist"
-  command = "npm run build && cd netlify/functions && npm install"
+  command = "npm run build:netlify"
   functions = "netlify/functions"
 
 [build.environment]
