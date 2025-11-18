@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AccessControlGate from './components/AccessControlGate';
 import Sidebar from './components/Sidebar';
 import NewDashboard from './components/NewDashboard';
+import ModernDashboard from './components/ModernDashboard';
 import ToolsSection from './components/ToolsSection';
 // Additional components will be imported as they are created
 // import UsersSection from './components/UsersSection';
@@ -47,6 +48,7 @@ interface HistoryRecord {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [useModernDashboard, setUseModernDashboard] = useState(true); // Toggle between old and new dashboard
   const currentUser = 'admin@surveysparrow.com';
 
   const handleTabChange = (tab: string) => {
