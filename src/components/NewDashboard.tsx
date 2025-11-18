@@ -18,6 +18,14 @@ import {
   Calendar
 } from 'lucide-react';
 
+interface ApplicationUserStats {
+  name: string;
+  userCount: number;
+  activeUsers: number;
+  category: string;
+  color: string;
+}
+
 interface DashboardStats {
   tools: {
     total: number;
@@ -39,6 +47,7 @@ interface DashboardStats {
     usersRemoved: number;
     flaggedUsers: number;
   };
+  applicationUserStats: ApplicationUserStats[];
   lastSync: string | null;
   systemHealth: 'healthy' | 'warning' | 'error';
 }
@@ -50,6 +59,7 @@ interface NewDashboardProps {
 export default function NewDashboard({ onNavigate }: NewDashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hoveredApp, setHoveredApp] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboardStats();
@@ -80,6 +90,18 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
           usersRemoved: 47,
           flaggedUsers: 15
         },
+        applicationUserStats: [
+          { name: 'GitHub', userCount: 342, activeUsers: 328, category: 'Development', color: 'bg-purple-500' },
+          { name: 'Slack', userCount: 1247, activeUsers: 1201, category: 'Communication', color: 'bg-pink-500' },
+          { name: 'Jira', userCount: 289, activeUsers: 267, category: 'Project Management', color: 'bg-blue-500' },
+          { name: 'AWS', userCount: 156, activeUsers: 142, category: 'Infrastructure', color: 'bg-orange-500' },
+          { name: 'Salesforce', userCount: 78, activeUsers: 72, category: 'CRM', color: 'bg-cyan-500' },
+          { name: 'Google Workspace', userCount: 1278, activeUsers: 1247, category: 'Productivity', color: 'bg-red-500' },
+          { name: 'Zoom', userCount: 892, activeUsers: 856, category: 'Communication', color: 'bg-indigo-500' },
+          { name: 'Figma', userCount: 124, activeUsers: 118, category: 'Design', color: 'bg-green-500' },
+          { name: 'Notion', userCount: 567, activeUsers: 534, category: 'Documentation', color: 'bg-gray-500' },
+          { name: 'DataDog', userCount: 89, activeUsers: 82, category: 'Monitoring', color: 'bg-violet-500' },
+        ],
         lastSync: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
         systemHealth: 'healthy'
       };
@@ -138,72 +160,105 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
         </div>
       </div>
 
-      {/* Exit Employee Metrics */}
+      {/* Applications & Users Chart */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <UserMinus className="h-5 w-5 mr-2 text-red-600" />
-            Exit Employee Dashboard
+            <BarChart3 className="h-5 w-5 mr-2 text-emerald-600" />
+            Applications & User Distribution
           </h2>
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <select className="text-sm border border-gray-300 rounded px-2 py-1 bg-white">
-              <option value="current">Current Month</option>
-              <option value="last">Last Month</option>
-              <option value="last3">Last 3 Months</option>
-            </select>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-emerald-500 rounded"></div>
+              <span className="text-gray-600">Active Users</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-gray-300 rounded"></div>
+              <span className="text-gray-600">Total Users</span>
+            </div>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-            <div className="flex items-center justify-between mb-2">
-              <UserMinus className="h-8 w-8 text-red-600" />
-              <TrendingUp className="h-4 w-4 text-red-500" />
-            </div>
-            <div className="text-2xl font-bold text-red-700">47</div>
-            <div className="text-sm text-red-600">Exit Users This Month</div>
-            <div className="text-xs text-red-500 mt-1">+12 from last month</div>
-          </div>
-          
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center justify-between mb-2">
-              <UserCheck className="h-8 w-8 text-green-600" />
-              <TrendingUp className="h-4 w-4 text-green-500" />
-            </div>
-            <div className="text-2xl font-bold text-green-700">1,201</div>
-            <div className="text-sm text-green-600">Active Users</div>
-            <div className="text-xs text-green-500 mt-1">+3.2% growth</div>
-          </div>
-          
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-center justify-between mb-2">
-              <FileCheck className="h-8 w-8 text-blue-600" />
-              <TrendingDown className="h-4 w-4 text-blue-500" />
-            </div>
-            <div className="text-2xl font-bold text-blue-700">156</div>
-            <div className="text-sm text-blue-600">Access Reviews Completed</div>
-            <div className="text-xs text-blue-500 mt-1">94.2% completion rate</div>
-          </div>
+        <div className="space-y-4">
+          {stats.applicationUserStats.sort((a, b) => b.userCount - a.userCount).map((app) => {
+            const maxUsers = Math.max(...stats.applicationUserStats.map(a => a.userCount));
+            const widthPercentage = (app.userCount / maxUsers) * 100;
+            const activePercentage = (app.activeUsers / app.userCount) * 100;
+            
+            return (
+              <div 
+                key={app.name}
+                className="group"
+                onMouseEnter={() => setHoveredApp(app.name)}
+                onMouseLeave={() => setHoveredApp(null)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-3 flex-1">
+                    <div className={`w-2 h-2 rounded-full ${app.color}`}></div>
+                    <span className="font-medium text-gray-900 min-w-[180px]">{app.name}</span>
+                    <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded">{app.category}</span>
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-emerald-600 font-semibold min-w-[80px] text-right">
+                      {app.activeUsers} active
+                    </span>
+                    <span className="text-gray-600 font-semibold min-w-[80px] text-right">
+                      {app.userCount} total
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="relative h-8 bg-gray-100 rounded-lg overflow-hidden">
+                  {/* Total users bar (background) */}
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-gray-300 transition-all duration-300 ease-out"
+                    style={{ width: `${widthPercentage}%` }}
+                  ></div>
+                  
+                  {/* Active users bar (foreground) */}
+                  <div 
+                    className={`absolute inset-y-0 left-0 ${app.color} opacity-80 transition-all duration-300 ease-out ${
+                      hoveredApp === app.name ? 'opacity-100 scale-y-110' : ''
+                    }`}
+                    style={{ width: `${(widthPercentage * activePercentage) / 100}%` }}
+                  ></div>
+                  
+                  {/* Percentage label */}
+                  {hoveredApp === app.name && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-bold text-white drop-shadow-lg bg-black bg-opacity-30 px-2 py-1 rounded">
+                        {activePercentage.toFixed(1)}% Active
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
         
-        {/* Exit Employee Actions */}
+        {/* Summary Stats */}
         <div className="mt-6 pt-4 border-t border-gray-200">
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-            <button 
-              onClick={() => onNavigate('access-review')}
-              className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Review Exit Employee Access
-            </button>
-            <button 
-              onClick={() => onNavigate('rep-doc')}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
-            >
-              <FileCheck className="h-4 w-4 mr-2" />
-              Generate Exit Reports
-            </button>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">
+                {stats.applicationUserStats.length}
+              </div>
+              <div className="text-sm text-gray-600">Total Applications</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-600">
+                {stats.applicationUserStats.reduce((sum, app) => sum + app.activeUsers, 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-600">Active Users (All Apps)</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-700">
+                {(stats.applicationUserStats.reduce((sum, app) => sum + app.activeUsers, 0) / 
+                  stats.applicationUserStats.reduce((sum, app) => sum + app.userCount, 0) * 100).toFixed(1)}%
+              </div>
+              <div className="text-sm text-gray-600">Overall Active Rate</div>
+            </div>
           </div>
         </div>
       </div>
