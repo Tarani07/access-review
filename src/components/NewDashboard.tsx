@@ -160,7 +160,7 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
         </div>
       </div>
 
-      {/* Applications & Users Chart */}
+      {/* Applications & Users Chart - Vertical */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
@@ -179,66 +179,97 @@ export default function NewDashboard({ onNavigate }: NewDashboardProps) {
           </div>
         </div>
         
-        <div className="space-y-4">
-          {stats.applicationUserStats.sort((a, b) => b.userCount - a.userCount).map((app) => {
-            const maxUsers = Math.max(...stats.applicationUserStats.map(a => a.userCount));
-            const widthPercentage = (app.userCount / maxUsers) * 100;
-            const activePercentage = (app.activeUsers / app.userCount) * 100;
-            
-            return (
-              <div 
-                key={app.name}
-                className="group"
-                onMouseEnter={() => setHoveredApp(app.name)}
-                onMouseLeave={() => setHoveredApp(null)}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3 flex-1">
-                    <div className={`w-2 h-2 rounded-full ${app.color}`}></div>
-                    <span className="font-medium text-gray-900 min-w-[180px]">{app.name}</span>
-                    <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded">{app.category}</span>
-                  </div>
-                  <div className="flex items-center space-x-4 text-sm">
-                    <span className="text-emerald-600 font-semibold min-w-[80px] text-right">
-                      {app.activeUsers} active
-                    </span>
-                    <span className="text-gray-600 font-semibold min-w-[80px] text-right">
-                      {app.userCount} total
-                    </span>
-                  </div>
-                </div>
+        {/* Vertical Bar Chart */}
+        <div className="relative">
+          {/* Y-axis labels */}
+          <div className="absolute left-0 top-0 bottom-12 flex flex-col justify-between text-xs text-gray-500 w-12">
+            {[1400, 1200, 1000, 800, 600, 400, 200, 0].map((value) => (
+              <div key={value} className="text-right pr-2">{value}</div>
+            ))}
+          </div>
+          
+          {/* Chart area */}
+          <div className="ml-12 pl-4">
+            <div className="flex items-end justify-between gap-2 h-80 border-l-2 border-b-2 border-gray-300 pl-4 pb-4">
+              {stats.applicationUserStats.sort((a, b) => b.userCount - a.userCount).map((app) => {
+                const maxUsers = Math.max(...stats.applicationUserStats.map(a => a.userCount));
+                const totalHeightPercentage = (app.userCount / maxUsers) * 100;
+                const activeHeightPercentage = (app.activeUsers / maxUsers) * 100;
                 
-                <div className="relative h-8 bg-gray-100 rounded-lg overflow-hidden">
-                  {/* Total users bar (background) */}
+                return (
                   <div 
-                    className="absolute inset-y-0 left-0 bg-gray-300 transition-all duration-300 ease-out"
-                    style={{ width: `${widthPercentage}%` }}
-                  ></div>
-                  
-                  {/* Active users bar (foreground) */}
-                  <div 
-                    className={`absolute inset-y-0 left-0 ${app.color} opacity-80 transition-all duration-300 ease-out ${
-                      hoveredApp === app.name ? 'opacity-100 scale-y-110' : ''
-                    }`}
-                    style={{ width: `${(widthPercentage * activePercentage) / 100}%` }}
-                  ></div>
-                  
-                  {/* Percentage label */}
-                  {hoveredApp === app.name && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold text-white drop-shadow-lg bg-black bg-opacity-30 px-2 py-1 rounded">
-                        {activePercentage.toFixed(1)}% Active
-                      </span>
+                    key={app.name}
+                    className="flex-1 flex flex-col items-center group"
+                    onMouseEnter={() => setHoveredApp(app.name)}
+                    onMouseLeave={() => setHoveredApp(null)}
+                  >
+                    {/* Tooltip */}
+                    {hoveredApp === app.name && (
+                      <div className="absolute -mt-20 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-xs z-10">
+                        <div className="font-semibold">{app.name}</div>
+                        <div className="text-emerald-300">Active: {app.activeUsers.toLocaleString()}</div>
+                        <div className="text-gray-300">Total: {app.userCount.toLocaleString()}</div>
+                        <div className="text-yellow-300">Rate: {((app.activeUsers / app.userCount) * 100).toFixed(1)}%</div>
+                      </div>
+                    )}
+                    
+                    {/* Bar container */}
+                    <div className="relative w-full h-full flex flex-col justify-end">
+                      {/* Total users bar (background) */}
+                      <div 
+                        className="w-full bg-gray-300 rounded-t-lg transition-all duration-300 ease-out relative"
+                        style={{ height: `${totalHeightPercentage}%` }}
+                      >
+                        {/* Active users bar (foreground) */}
+                        <div 
+                          className={`absolute bottom-0 left-0 right-0 ${app.color} rounded-t-lg transition-all duration-300 ease-out ${
+                            hoveredApp === app.name ? 'opacity-100 shadow-lg' : 'opacity-90'
+                          }`}
+                          style={{ height: `${(activeHeightPercentage / totalHeightPercentage) * 100}%` }}
+                        >
+                          {/* User count label */}
+                          {hoveredApp === app.name && (
+                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-bold text-gray-900 whitespace-nowrap">
+                              {app.activeUsers}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    
+                    {/* App name label (X-axis) */}
+                    <div className="mt-2 text-center">
+                      <div 
+                        className={`text-xs font-medium text-gray-900 transform -rotate-45 origin-top-left whitespace-nowrap ${
+                          hoveredApp === app.name ? 'font-bold text-emerald-600' : ''
+                        }`}
+                        style={{ 
+                          maxWidth: '80px',
+                          fontSize: '10px'
+                        }}
+                      >
+                        {app.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* X-axis label */}
+            <div className="text-center mt-8 text-sm font-medium text-gray-600">
+              Applications
+            </div>
+          </div>
+          
+          {/* Y-axis label */}
+          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -rotate-90 text-sm font-medium text-gray-600 whitespace-nowrap">
+            Number of Users
+          </div>
         </div>
         
         {/* Summary Stats */}
-        <div className="mt-6 pt-4 border-t border-gray-200">
+        <div className="mt-8 pt-6 border-t border-gray-200">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
