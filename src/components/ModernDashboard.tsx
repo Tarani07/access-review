@@ -533,3 +533,5 @@ export default function ModernDashboard({ onNavigate }: ModernDashboardProps) {
   );
 }
 
+export default ModernDashboard;
+
